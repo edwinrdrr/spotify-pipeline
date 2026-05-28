@@ -46,3 +46,5 @@ select
     end as status,
     snapshot_track_key
 from with_lags
+
+-- slim ci smoke test 1779989948
