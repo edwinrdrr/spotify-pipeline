@@ -16,7 +16,7 @@
 | 9  | Manual prod-deploy gate (required reviewer)    | [x] **done**  | `phase-9-prod-gate`    |
 | 10 | Infra-as-code (Terraform)                      | [x] **done**  | `phase-10-terraform`   |
 | 11 | True per-env isolation (Level 3, project-per-env) | [x] **done**  | `phase-11-level-3` |
-| 12 | Terraform CI (plan-on-PR / apply-on-merge)     | [~] in PR     | (pending merge)        |
+| 12 | Terraform CI (plan-on-PR / apply-on-merge)     | [x] **done**  | `phase-12-terraform-ci`|
 | 13 | Observability + alerting                       | [ ] not started | —                    |
 | 14 | Orchestration upgrade (Airflow/Prefect/Dagster)| [ ] not started | —                    |
 | 15 | Data quality + lineage                         | [ ] not started | —                    |
