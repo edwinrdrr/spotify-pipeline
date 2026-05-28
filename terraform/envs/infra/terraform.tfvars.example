@@ -1,0 +1,6 @@
+project_id           = "spotify-pipeline-infra-260529"
+dev_project_id       = "spotify-pipeline-dev-260529"
+staging_project_id   = "spotify-pipeline-stg-260529"
+prod_project_id      = "spotify-pipeline-prod-260529"
+github_repository    = "edwinrdrr/spotify-pipeline"
+github_repository_id = "REPLACE_WITH_NUMERIC_ID"   # gh api repos/<owner>/<repo> --jq .id

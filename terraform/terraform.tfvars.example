@@ -1,8 +1,0 @@
-project_id          = "spotify-pipeline-260528"
-billing_account_id  = "012D5A-0DD848-C2502B"
-
-# defaults are fine for most fields; override here if needed:
-# region              = "us-central1"
-# location            = "US"
-# budget_currency     = "IDR"
-# budget_amount_units = "80000"

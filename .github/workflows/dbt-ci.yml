@@ -1,9 +1,7 @@
 name: dbt CI
 
-# Phase 8: Slim CI. Each PR gets an ephemeral schema spotify_analytics_ci_pr_<n>;
-# unselected models defer to the prod manifest in gs://<bucket>/dbt-state/manifest.json.
-# Only models whose SQL body changed (and their downstream) get rebuilt.
-# First PR after a manifest-less repo / a stale manifest falls back to a full build.
+# Phase 11: WIF auth + dev project. Per-PR ephemeral schema
+# spotify_analytics_ci_pr_<n> inside the dev project.
 
 on:
   pull_request:
@@ -14,18 +12,19 @@ on:
 
 permissions:
   contents: read
+  id-token: write   # required for WIF
 
 jobs:
   dbt-test:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    environment: dev
 
     env:
-      GCP_PROJECT: ${{ secrets.GCP_PROJECT }}
+      GCP_PROJECT_DEV: ${{ secrets.GCP_PROJECT_DEV }}
       DBT_PROFILES_DIR: ${{ github.workspace }}/dbt
-      # Per-PR ephemeral schema; profiles.yml reads this via env_var().
       DBT_CI_DATASET: spotify_analytics_ci_pr_${{ github.event.pull_request.number }}
-      CI_STATE_BUCKET: ${{ secrets.GCP_PROJECT }}-ci-state
+      CI_STATE_BUCKET: ${{ vars.CI_STATE_BUCKET }}
 
     steps:
       - uses: actions/checkout@v4
@@ -39,17 +38,10 @@ jobs:
       - name: Install dbt
         run: pip install -r requirements-dbt.txt
 
-      - name: Write GCP credentials
-        env:
-          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
-        run: |
-          umask 077
-          echo "$GCP_SA_KEY" > "${RUNNER_TEMP}/sa-key.json"
-          echo "GOOGLE_APPLICATION_CREDENTIALS=${RUNNER_TEMP}/sa-key.json" >> "$GITHUB_ENV"
-
       - uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: dbt-ci@${{ secrets.GCP_PROJECT_DEV }}.iam.gserviceaccount.com
 
       - uses: google-github-actions/setup-gcloud@v2
 
@@ -60,20 +52,16 @@ jobs:
           if gsutil ls "gs://${CI_STATE_BUCKET}/dbt-state/manifest.json" >/dev/null 2>&1; then
             gsutil cp "gs://${CI_STATE_BUCKET}/dbt-state/manifest.json" prod-state/manifest.json
             echo "have_manifest=true" >> "$GITHUB_OUTPUT"
-            echo "  prod manifest fetched — Slim CI enabled"
           else
             echo "have_manifest=false" >> "$GITHUB_OUTPUT"
-            echo "  no prod manifest yet — falling back to full build"
           fi
 
-      - name: dbt deps + build (Slim CI when manifest available)
+      - name: dbt build (Slim CI when manifest available)
         working-directory: dbt
         run: |
           if [ "${{ steps.manifest.outputs.have_manifest }}" = "true" ]; then
-            dbt build --target ci --no-partial-parse \
-                --select state:modified.body+ \
-                --defer \
-                --state ../prod-state
+            dbt build --target dev --no-partial-parse \
+                --select state:modified.body+ --defer --state ../prod-state
           else
-            dbt build --target ci --no-partial-parse
+            dbt build --target dev --no-partial-parse
           fi
