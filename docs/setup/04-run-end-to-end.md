@@ -1,8 +1,13 @@
-# 04 — Run the snapshot (laptop → GCS → BigQuery)
+# 04 — Run the snapshot locally (sanity check before deploy)
 
 You have the repo cloned (doc 01), a Spotify app's credentials (doc 02), and a fresh
 GCP project with bucket + dataset + ADC (doc 03). Now wire `.env`, install deps, and
-take an end-to-end snapshot.
+take one snapshot manually from your laptop.
+
+**Why local first when Phase 3 deploys to Cloud Function**: this catches credential
+typos, IAM gaps, and `.env` mistakes in seconds instead of after a 2-minute function
+deploy. Run it once locally to prove everything's wired, then continue to
+[`05-deploy-function.md`](05-deploy-function.md) to let the cloud do it daily.
 
 ## 1. Put credentials in `.env`
 
@@ -88,19 +93,18 @@ bq query --use_legacy_sql=false --format=pretty \
 
 Expected: 5 rows, one per artist, all with 10 tracks and avg popularity > 70.
 
-## What the script actually does (Phase 2)
+## What the script actually does
 
 1. Hits Spotify's `Get Artist Top Tracks` endpoint for 5 hardcoded artists (Taylor
    Swift, Kendrick Lamar, Bad Bunny, The Weeknd, Phoebe Bridgers).
 2. Writes a CSV to a tmp file (`/tmp/...`).
 3. Uploads that CSV to `gs://<bucket>/snapshots/snapshot_<date>.csv` via the GCS client.
 4. Runs a BigQuery LoadJob from the GCS URI into `<project>.spotify_raw.top_tracks`
-   with `WRITE_APPEND` — so each day's run grows the table by ~50 rows.
+   with `WRITE_APPEND` — so each invocation grows the table by ~50 rows.
 
-The local tmp file is deleted at the end.
-
-Phase 3 will wrap this script as a Cloud Function + Scheduler so it runs daily without
-you. Phase 4 will add dbt models on top of `top_tracks` to compute popularity churn.
+The local tmp file is deleted at the end. The same `run_snapshot()` function is what
+the Cloud Function in doc 05 calls — so running it locally is exactly what the cloud
+will do.
 
 ## Troubleshooting
 
@@ -121,9 +125,10 @@ you. Phase 4 will add dbt models on top of `top_tracks` to compute popularity ch
 ## All green?
 
 You have:
-- A daily CSV in `gs://<bucket>/snapshots/`
-- A growing BigQuery table at `<project>.spotify_raw.top_tracks`
-- A query you can run to see popularity by artist
+- A CSV in `gs://<bucket>/snapshots/`
+- 50 rows in `<project>.spotify_raw.top_tracks`
+- A query that returns 5 rows (one per artist) all with popularity > 70
 
-Phase 2 is reproducible from these four docs (01 → 04). Phase 3 will add a Cloud
-Function + Scheduler so this no longer needs your laptop.
+The script is verified end-to-end against your project. → continue to
+[`05-deploy-function.md`](05-deploy-function.md) to wrap it as a Cloud Function +
+daily Cloud Scheduler so your laptop is no longer in the critical path.

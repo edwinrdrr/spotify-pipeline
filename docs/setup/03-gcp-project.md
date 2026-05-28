@@ -95,17 +95,33 @@ authenticate first (next step), then come back and run it.
 
 ### Step 5: Enable APIs
 
-`billingbudgets.googleapis.com` isn't in GCP's default-enabled set — you need it for
-step 9. Enable all four together so step 9 doesn't trip:
+Several APIs aren't in GCP's default-enabled set; enable everything we'll need across
+Phase 2 + 3 in one call so we don't trip later:
 
 ```bash
 gcloud services enable \
   storage.googleapis.com \
   bigquery.googleapis.com \
   cloudresourcemanager.googleapis.com \
+  iam.googleapis.com \
+  iamcredentials.googleapis.com \
   billingbudgets.googleapis.com \
+  cloudfunctions.googleapis.com \
+  run.googleapis.com \
+  cloudbuild.googleapis.com \
+  artifactregistry.googleapis.com \
+  eventarc.googleapis.com \
+  cloudscheduler.googleapis.com \
   --project="$PROJECT_ID"
 ```
+
+What each is for:
+- `storage` + `bigquery` — Phase 2 data path (bucket + dataset)
+- `cloudresourcemanager` + `iam` + `iamcredentials` — IAM bindings, OIDC tokens for scheduler→function
+- `billingbudgets` — step 9 budget alert
+- `cloudfunctions` + `run` + `cloudbuild` + `artifactregistry` — Phase 3 Cloud Function (gen2 = Cloud Run under the hood)
+- `eventarc` — required by gen2 Cloud Functions
+- `cloudscheduler` — Phase 3 daily cron
 
 This takes ~30 seconds to return, and another ~30 seconds before downstream API calls
 will accept (see "propagation delays" above).

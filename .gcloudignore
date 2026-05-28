@@ -1,0 +1,33 @@
+# Files to skip when uploading source to Cloud Functions.
+# Cloud Functions auto-builds from main.py + requirements.txt; nothing else is needed.
+
+.git/
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.python-version
+
+# Local credentials + data — NEVER ship to the function
+.env
+.env.*
+*-key.json
+data/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Docs (not needed at runtime)
+docs/
+README.md
+JOURNEY.md
+BRIEF.md
+*.md
+
+# CI / IDE
+.github/
+.vscode/
+.idea/
