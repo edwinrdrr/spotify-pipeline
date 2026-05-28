@@ -11,7 +11,7 @@
 | 4  | Add real transform layer (dbt)                 | [x] **done**  | `phase-4-dbt`          |
 | 5  | Repo hygiene polish (see note below)           | [x] **done**  | `phase-5-hygiene`      |
 | 6  | First CI: tests on PR                          | [x] **done**  | `phase-6-first-ci`     |
-| 7  | Multi-env via dataset suffix (Level 1)         | [~] in PR     | (pending merge)        |
+| 7  | Multi-env via dataset suffix (Level 1)         | [x] **done**  | `phase-7-multi-env`    |
 | 8  | Slim CI + ephemeral schemas                    | [ ] not started | —                    |
 | 9  | Manual prod-deploy gate (required reviewer)    | [ ] not started | —                    |
 | 10 | Infra-as-code (Terraform)                      | [ ] not started | —                    |
