@@ -25,8 +25,9 @@ On `main`, they're historical references — the Phase-11 reproducer is doc 12.
 | 10 | [`10-prod-gate.md`](10-prod-gate.md) — required-reviewer gate on prod via GitHub Environment | 2 min |
 | 11 | [`11-terraform.md`](11-terraform.md) — Terraform-ize buckets/datasets/SAs/IAM/APIs/budget (Phase 10) | 5 min |
 | 12 | [`12-level-3.md`](12-level-3.md) — Level-3 refactor: 4 GCP projects, WIF, multi-env Terraform (Phase 11) | 15 min |
+| 13 | [`13-terraform-ci.md`](13-terraform-ci.md) — Terraform CI: plan-on-PR + apply-on-merge (Phase 12) | 5 min |
 
-Total: ~67 minutes through Phase 11. (Phase 11 dominates — 4 projects to provision + WIF + workflow migration.)
+Total: ~72 minutes through Phase 12.
 
 > **Reproducing an earlier phase**: this folder is always the setup for whatever is
 > on `main`. To reproduce Phase N's state, `git checkout phase-N-tag` and read

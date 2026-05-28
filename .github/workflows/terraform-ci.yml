@@ -1,0 +1,133 @@
+name: terraform CI
+
+# Phase 12: plan-on-PR (comment), apply-on-merge. WIF auth as tf-runner@infra.
+
+on:
+  pull_request:
+    paths:
+      - 'terraform/**'
+      - '.github/workflows/terraform-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'terraform/**'
+      - '.github/workflows/terraform-ci.yml'
+
+permissions:
+  contents: read
+  id-token: write    # WIF
+  pull-requests: write   # post plan comments
+
+env:
+  TF_VERSION: '1.9.8'
+
+jobs:
+  plan-or-apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    strategy:
+      fail-fast: false
+      matrix:
+        env: [dev, staging, prod, infra]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: tf-runner@${{ vars.INFRA_PROJECT_ID }}.iam.gserviceaccount.com
+
+      - name: Write terraform.tfvars
+        working-directory: terraform/envs/${{ matrix.env }}
+        run: |
+          if [ "${{ matrix.env }}" = "infra" ]; then
+            cat > terraform.tfvars <<EOF
+          project_id           = "${{ vars.INFRA_PROJECT_ID }}"
+          dev_project_id       = "${{ vars.DEV_PROJECT_ID }}"
+          staging_project_id   = "${{ vars.STAGING_PROJECT_ID }}"
+          prod_project_id      = "${{ vars.PROD_PROJECT_ID }}"
+          github_repository    = "${{ github.repository }}"
+          github_repository_id = "${{ github.repository_id }}"
+          EOF
+          else
+            # dev / staging / prod
+            case "${{ matrix.env }}" in
+              dev)     PID="${{ vars.DEV_PROJECT_ID }}" ;;
+              staging) PID="${{ vars.STAGING_PROJECT_ID }}" ;;
+              prod)    PID="${{ vars.PROD_PROJECT_ID }}" ;;
+            esac
+            cat > terraform.tfvars <<EOF
+          project_id = "${PID}"
+          EOF
+          fi
+
+      - name: terraform init
+        working-directory: terraform/envs/${{ matrix.env }}
+        run: terraform init -input=false -no-color
+
+      - name: terraform plan (PR) or apply (merge)
+        id: plan
+        working-directory: terraform/envs/${{ matrix.env }}
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            # plan-on-PR: -lock=false so concurrent plans don't block each other.
+            # Capture stdout for the comment below.
+            set +e
+            terraform plan -input=false -lock=false -no-color -out=tfplan 2>&1 | tee plan.txt
+            EXIT=${PIPESTATUS[0]}
+            set -e
+            {
+              echo 'plan<<__EOF__'
+              tail -c 60000 plan.txt
+              echo '__EOF__'
+            } >> "$GITHUB_OUTPUT"
+            exit $EXIT
+          else
+            # merge to main: apply
+            terraform apply -input=false -auto-approve -no-color
+          fi
+
+      - name: Comment plan on PR
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        env:
+          PLAN: ${{ steps.plan.outputs.plan }}
+          ENV_NAME: ${{ matrix.env }}
+          STATUS: ${{ job.status }}
+        with:
+          script: |
+            const env = process.env.ENV_NAME;
+            const status = process.env.STATUS;
+            const plan = process.env.PLAN || '(no plan captured — check job logs)';
+            const badge = status === 'success' ? '✅' : '❌';
+            const body = `${badge} **terraform plan: \`envs/${env}\`** (status: ${status})\n\n` +
+                         `<details><summary>show plan</summary>\n\n\`\`\`hcl\n${plan}\n\`\`\`\n</details>`;
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+            });
+            const marker = `**terraform plan: \`envs/${env}\`**`;
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                body,
+              });
+            }
