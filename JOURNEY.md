@@ -10,7 +10,7 @@
 | 3  | Automate ingestion (Cloud Function + Scheduler)| [x] **done**  | `phase-3-automation`   |
 | 4  | Add real transform layer (dbt)                 | [x] **done**  | `phase-4-dbt`          |
 | 5  | Repo hygiene polish (see note below)           | [x] **done**  | `phase-5-hygiene`      |
-| 6  | First CI: tests on PR                          | [~] in PR     | (pending merge)        |
+| 6  | First CI: tests on PR                          | [x] **done**  | `phase-6-first-ci`     |
 | 7  | Multi-env via dataset suffix (Level 1)         | [ ] not started | —                    |
 | 8  | Slim CI + ephemeral schemas                    | [ ] not started | —                    |
 | 9  | Manual prod-deploy gate (required reviewer)    | [ ] not started | —                    |
