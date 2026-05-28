@@ -44,31 +44,34 @@ git checkout main                 # back to the latest phase
 This gives you a **Client ID** + **Client Secret** — the credentials the script uses to
 talk to Spotify.
 
+> Spotify's dashboard UI evolves; the screens may look slightly different than described
+> here. The constants that matter (and that this guide is verified against the official
+> docs for): you need an app with a **Client ID** and **Client Secret**, and for our
+> Phase 1 use (Client Credentials flow) you do **not** need to configure a redirect URI.
+
 1. Go to **https://developer.spotify.com/dashboard**.
-2. Click **"Log in"** (top-right) and sign in with your Spotify account.
-3. First time only: you may be asked to **accept the Spotify Developer Terms of Service**
-   — click through.
-4. Click the green **"Create app"** button (top-right).
-5. Fill the form:
-   - **App name** — anything, e.g. `spotify-pipeline-learning`
-   - **App description** — anything, e.g. `Personal learning project — track Today's
-     Top Hits churn`
-   - **Website** — leave blank (optional)
-   - **Redirect URI** — type `http://localhost:8888/callback` and click the
-     **"Add"** button next to the field so the URI appears as a chip.
-     > Client Credentials (what we use in Phase 1) doesn't use the redirect URI, but
-     > the form requires *something*. Setting `localhost:8888/callback` now means we
-     > don't need to come back here when we add OAuth in Phase 3-4.
-   - **Which API/SDKs are you planning to use?** — check ☑ **"Web API"**.
-   - Tick ☑ **"I understand and agree with Spotify's Developer Terms of Service and
-     Design Guidelines"**.
-6. Click **"Save"** at the bottom.
-7. You land on the app's home page. In the top-right corner you'll see a **"Settings"**
-   button. Click it.
-8. The page shows your **Client ID** at the top — it's a long alphanumeric string
-   (looks like `1a2b3c4d5e6f7g8h9i0j...`). Copy it.
-9. Below Client ID, click **"View client secret"** to reveal the Client Secret. Copy it.
-10. Keep these two values handy for the next step.
+2. Log in with your Spotify account if prompted. If this is your first time on the
+   Developer site, you may be asked to accept the Spotify Developer Terms of Service —
+   click through.
+3. Click **"Create app"** (button label sometimes appears as "Create an App").
+4. Fill the form. Per the official Spotify docs, the required fields are:
+   - **App name** — anything (e.g. `spotify-pipeline-learning`)
+   - **App description** — anything (e.g. `Learning project — track Today's Top Hits churn`)
+   - **Terms of Service checkbox** — tick it
+5. *(If the form shows extra fields like Redirect URI, Website, or "Which APIs are you
+   planning to use" — these are optional for Phase 1. Leave Redirect URI blank if
+   allowed; if it's required, paste `http://127.0.0.1:8080` — we'll only use it when we
+   add user-OAuth in Phase 3–4. If "Which APIs" appears, tick **Web API**.)*
+6. Click **Create** (or **Save**) at the bottom.
+7. You'll land on the app overview page. The **Client ID** is shown there.
+8. The **Client Secret** is on the same page. Depending on UI version it may be
+   shown directly, hidden behind a **"View client secret"** link, or available via
+   the app's **Settings** page. Click whatever the page offers and copy the secret.
+9. Keep both values handy for the next step.
+
+> **If a Redirect URI is required and you paste `http://127.0.0.1:8080`**: that's a
+> placeholder. It's only used when a user logs in via OAuth (Phase 3+); Client
+> Credentials never redirects, so the value doesn't matter for Phase 1.
 
 ### Step 2: put credentials in `.env`
 
