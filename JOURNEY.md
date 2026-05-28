@@ -13,7 +13,7 @@
 | 6  | First CI: tests on PR                          | [x] **done**  | `phase-6-first-ci`     |
 | 7  | Multi-env via dataset suffix (Level 1)         | [x] **done**  | `phase-7-multi-env`    |
 | 8  | Slim CI + ephemeral schemas                    | [x] **done**  | `phase-8-slim-ci`      |
-| 9  | Manual prod-deploy gate (required reviewer)    | [~] in PR     | (pending merge)        |
+| 9  | Manual prod-deploy gate (required reviewer)    | [x] **done**  | `phase-9-prod-gate`    |
 | 10 | Infra-as-code (Terraform)                      | [ ] not started | —                    |
 | 11 | True per-env isolation (Level 3, project-per-env) | [ ] not started | —                 |
 | 12 | Terraform CI (plan-on-PR / apply-on-merge)     | [ ] not started | —                    |
