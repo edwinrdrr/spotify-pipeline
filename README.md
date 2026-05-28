@@ -138,7 +138,19 @@ spreadsheet or pandas later if you want to play.
 
 ### Phase 1 honest caveat
 
-Spotify deprecated `/v1/audio-features` for newly-created apps in **November 2024** —
-new apps now need "Extended Quota" approval to access them. Phase 1 sticks to playlist
-items + popularity (still rich enough for entry / exit / climb analysis). Audio
-features deferred — either we apply for Extended Quota later or live without them.
+The original Phase-0 brief targeted **Today's Top Hits playlist churn**. After trying it
+end-to-end we discovered Spotify's November 2024 deprecation hits more than just
+audio-features for new apps:
+
+| Endpoint | New apps in 2026 |
+|---|---|
+| `/v1/playlists/{id}` for **editorial / algorithmic** playlists (Today's Top Hits, RapCaviar, …) | **404 — blocked** |
+| `/v1/audio-features` | **403 — blocked** |
+| `/v1/recommendations` | **404 — blocked** |
+| `/v1/artists/{id}/top-tracks` | ✅ works |
+| `/v1/artists/{id}` , `/v1/tracks/{id}` , `/v1/search` , `/v1/browse/new-releases` | ✅ works |
+
+So Phase 1 **pivoted** to **artist top-tracks**: snapshot the top ~10 tracks of N hardcoded
+artists (Taylor Swift / Kendrick Lamar / Bad Bunny / The Weeknd / Phoebe Bridgers in the
+default list — edit `ARTISTS` in `snapshot.py` to change them). Same project shape (daily
+popularity churn), just sourced from artists we pick instead of Spotify's editorial.

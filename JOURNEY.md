@@ -29,12 +29,23 @@ Goal: define the problem before touching code. Artifact: [`BRIEF.md`](BRIEF.md).
 Phase ends when every `TODO` in BRIEF.md is filled in.
 
 ### Phase 1 — Hacky MVP
-Goal: one Python script hits the Spotify public API and writes a daily snapshot of
-Today's Top Hits to a local CSV. No abstractions, no cloud, no automation. Discipline:
-resist the temptation to over-engineer — if it can be one file, it's one file.
+Goal: one Python script hits the Spotify public API and writes a daily snapshot to a
+local CSV. No abstractions, no cloud, no automation. Discipline: resist the temptation
+to over-engineer — if it can be one file, it's one file.
 
-**Honest caveat**: Spotify deprecated `/v1/audio-features` for new apps in Nov 2024.
-Phase 1 drops it; playlist items + popularity carry the analysis fine for now.
+**Pivot recorded here**: Phase 0's brief targeted "Today's Top Hits playlist churn."
+End-to-end testing in Phase 1 revealed Spotify's Nov 2024 deprecation blocks editorial
+playlists, audio-features, and recommendations for newly-created apps (404/403). The
+brief's question still holds — "how does popularity churn over time" — but the data
+source pivoted to **artist top-tracks** for a hardcoded list of 5 artists, which uses
+endpoints that still work for new apps. BRIEF.md was left as-is (it captures Phase 0's
+intent honestly); the pivot is documented here and in the Phase 1 PR.
+
+**Other Phase 1 lessons captured**:
+- Spotify's token endpoint 503s intermittently — script has exponential-backoff retry
+- `python-requests` default User-Agent gets blocked sometimes — script sets an explicit one
+- Always verify hardcoded IDs via Search before trusting training data (one of the 5
+  artist IDs in the first draft was wrong by one character)
 
 ### Phase 5 — Repo hygiene polish (concession noted)
 The "classic" Phase 5 is "introduce git" — but this repo bends that. Git was used from
