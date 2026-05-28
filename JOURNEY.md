@@ -7,7 +7,7 @@
 | 0  | Scoping                                        | [x] **done**  | `phase-0-scoping`      |
 | 1  | Hacky MVP / data validation (laptop → CSV)     | [x] **done**  | `phase-1-mvp`          |
 | 2  | First cloud landing (single GCP project)       | [x] **done**  | `phase-2-cloud-landing`|
-| 3  | Automate ingestion (Cloud Function + Scheduler)| [ ] not started | —                    |
+| 3  | Automate ingestion (Cloud Function + Scheduler)| [~] in PR     | (pending merge)        |
 | 4  | Add real transform layer (dbt)                 | [ ] not started | —                    |
 | 5  | Repo hygiene polish (see note below)           | [ ] not started | —                    |
 | 6  | First CI: tests on PR                          | [ ] not started | —                    |
@@ -89,11 +89,33 @@ intent honestly); the pivot is documented here and in the Phase 1 PR.
 ### Phase 3 — Automate ingestion (Cloud Function + Scheduler)
 - **Trigger**: "Why is the data stale? Did you forget to run it?" — and you're tired of
   remembering to do it daily.
-- **Goal**: Wrap `snapshot.py` as a Cloud Function. Cloud Scheduler triggers it daily.
-- **Discipline**: Function calls the SAME code. No fancy retries beyond what's already
-  there. No alerts yet (Phase 13). No Terraform yet (Phase 10).
-- **Artifact**: A scheduled job running daily, snapshots appearing on schedule, you no
-  longer touch your laptop for the ingestion to work.
+- **Goal**: Wrap `snapshot.py` as a Cloud Function gen2. Cloud Scheduler triggers it
+  daily at 00:05 UTC.
+- **Discipline**: Function calls the SAME code as the CLI (via `run_snapshot()`). Two
+  purpose-built SAs (`spotify-ingest-fn` + `spotify-scheduler`). `--set-env-vars` for
+  Spotify creds (Phase 5+ → Secret Manager). No alerts (Phase 13). No Terraform (Phase 10).
+- **Artifact**: `spotify-snapshot-daily` Cloud Scheduler firing at 00:05 UTC, hitting
+  `spotify-snapshot` Cloud Function via OIDC, growing the BQ table by 50 rows/day with
+  no laptop in the path.
+
+**Lessons captured during execution**:
+- **Spotify retry budget bumped from 15s to 63s** — unattended runs can't be re-triggered
+  by a human, so the script needs longer patience for Spotify CDN 503 windows.
+- **SA propagation lag (~5-15s)** — `gcloud iam service-accounts create` returns
+  immediately, but using the SA in an IAM binding can fail for ~10s afterward.
+  `deploy.sh` polls with `gcloud iam service-accounts describe` until the SA shows up.
+- **`roles/storage.objectCreator` is too narrow** — the function needs to overwrite
+  same-day snapshots on re-runs, which requires `storage.objects.delete`. Bumped to
+  `roles/storage.objectAdmin` (bucket-scoped — still narrow).
+- **`roles/run.invoker` IAM propagation takes ~30-60s** — without an explicit wait
+  after the binding, the first `gcloud scheduler jobs run` after deploy hits a 401
+  even though the binding is technically in place. `deploy.sh` now sleeps 30s after
+  the binding.
+- **Cloud Function gen2 entry point lives in `main.py`** (not configurable for Python).
+  Kept `snapshot.py` as the worker (CLI + reusable); added a tiny `main.py` that imports
+  `snapshot.run_snapshot()`. Code stays single-sourced.
+- **`.gcloudignore`** is essential — without it `.venv/`, `data/`, `.env` would be
+  uploaded to the function build (`.env` would expose secrets).
 
 ### Phase 4 — Add real transform layer (dbt)
 - **Trigger**: "Hey, can you tell me which tracks moved up / down / new since last week?"

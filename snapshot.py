@@ -1,14 +1,13 @@
-"""Phase 2 — daily artist-top-tracks snapshot, landed in GCS + BigQuery.
+"""Phase 3 — same snapshot work, now callable from both CLI and Cloud Function.
 
-What changed vs Phase 1: instead of writing the CSV to ./data/ on your laptop,
-the script writes it to a tmp file, uploads it to a GCS bucket (one blob per
-day), then runs a BigQuery LoadJob to append into a table. ADC handles auth
-(no SA key JSON).
+Phase 2 wrote CSV to a tmp file → GCS → BigQuery LoadJob, run manually from laptop.
+Phase 3 keeps all that logic identical; the only change is `main()` → `run_snapshot()`
+so Cloud Functions can import + call it. Local invocation still works via the
+`__main__` block at the bottom.
 
-Still intentionally minimal:
-- One file, no abstractions
-- One GCP project (no env separation yet — that's Phase 7+)
-- Manual run from laptop (automation comes in Phase 3)
+Phase 3 also bumps the Spotify token retry budget (1+2+4+8+16+32 = 63s vs 15s
+before) because the function runs unattended — nobody re-runs it if a 503 window
+exceeds the old budget.
 """
 import csv
 import datetime as dt
@@ -66,8 +65,11 @@ SESSION.headers.update(HEADERS)
 
 
 def _request_with_retry(method: str, url: str, **kwargs) -> requests.Response:
-    """Retry with exponential backoff on 5xx — Spotify's CDN 503s intermittently."""
-    backoffs = [1, 2, 4, 8]
+    """Retry with exponential backoff on 5xx — Spotify's CDN 503s intermittently.
+
+    Bumped from 15s total budget (Phase 2) to 63s for unattended function runs.
+    """
+    backoffs = [1, 2, 4, 8, 16, 32]
     last_r = None
     for delay in backoffs:
         last_r = SESSION.request(method, url, timeout=15, **kwargs)
@@ -141,7 +143,8 @@ def load_into_bigquery(gcs_uri: str) -> int:
     return load_job.output_rows
 
 
-def main() -> None:
+def run_snapshot() -> None:
+    """The actual work. Called from CLI (`__main__`) and from the HTTP handler in main.py."""
     token = get_token()
     snapshot_date = dt.date.today().isoformat()
 
@@ -161,4 +164,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    run_snapshot()
