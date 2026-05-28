@@ -4,7 +4,7 @@ A **phases-by-doing** data-engineering learning project. Each phase lands as one
 `main` and gets an annotated git tag at the boundary. `main` is always the latest phase;
 `git checkout phase-N-name` revisits any earlier state.
 
-**Currently at: Phase 0 — Scoping** (no code yet — that's the discipline.)
+**Currently at: Phase 1 — Hacky MVP** (one Python script → CSV on laptop)
 
 ## Why this repo exists
 
@@ -16,8 +16,11 @@ temptation to skip ahead just because I know what the end looks like.
 
 ## Where to look
 
-- [`BRIEF.md`](BRIEF.md) — the Phase 0 artifact: what we're building and why
-- [`JOURNEY.md`](JOURNEY.md) — the phase tracker (where we are, what's done, what's next)
+- **[`docs/setup/`](docs/setup/README.md)** — reproduce what's currently on `main`
+  (~8 min for Phase 1)
+- [`BRIEF.md`](BRIEF.md) — the Phase 0 artifact: what we set out to build and why
+- [`JOURNEY.md`](JOURNEY.md) — the phase tracker (where we are, what's done, what's
+  next, what pivoted)
 
 ## Reproducing any phase
 
@@ -26,3 +29,7 @@ git tag -l                        # list every phase boundary
 git checkout phase-0-scoping      # revisit Phase 0's state
 git checkout main                 # back to the latest phase
 ```
+
+Each phase tag's `docs/setup/` describes what's needed for *that* phase, not the
+cumulative journey. To reproduce Phase 5's state: `git checkout phase-5-...` and
+follow that tag's `docs/setup/` — it only mentions what Phase 5 needed.
