@@ -14,8 +14,9 @@ Follow these docs **in order** to reproduce what's currently on `main`.
 | 8 | [`08-multi-env.md`](08-multi-env.md) — dataset-suffix env split: `dev`/`ci`/`staging`/`prod` | 3 min |
 | 9 | [`09-slim-ci.md`](09-slim-ci.md) — Slim CI deferral + per-PR ephemeral schemas + auto-cleanup | 4 min |
 | 10 | [`10-prod-gate.md`](10-prod-gate.md) — required-reviewer gate on prod via GitHub Environment | 2 min |
+| 11 | [`11-terraform.md`](11-terraform.md) — Terraform-ize buckets/datasets/SAs/IAM/APIs/budget (Phase 10) | 5 min |
 
-Total: ~47 minutes through Phase 9.
+Total: ~52 minutes through Phase 10.
 
 > **Reproducing an earlier phase**: this folder is always the setup for whatever is
 > on `main`. To reproduce Phase N's state, `git checkout phase-N-tag` and read

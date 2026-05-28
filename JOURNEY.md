@@ -14,7 +14,7 @@
 | 7  | Multi-env via dataset suffix (Level 1)         | [x] **done**  | `phase-7-multi-env`    |
 | 8  | Slim CI + ephemeral schemas                    | [x] **done**  | `phase-8-slim-ci`      |
 | 9  | Manual prod-deploy gate (required reviewer)    | [x] **done**  | `phase-9-prod-gate`    |
-| 10 | Infra-as-code (Terraform)                      | [ ] not started | —                    |
+| 10 | Infra-as-code (Terraform)                      | [~] in PR     | (pending merge)        |
 | 11 | True per-env isolation (Level 3, project-per-env) | [ ] not started | —                 |
 | 12 | Terraform CI (plan-on-PR / apply-on-merge)     | [ ] not started | —                    |
 | 13 | Observability + alerting                       | [ ] not started | —                    |
@@ -289,13 +289,32 @@ intent honestly); the pivot is documented here and in the Phase 1 PR.
 
 ### Phase 10 — Infra-as-code (Terraform)
 - **Trigger**: "What's actually in our GCP project? I can't tell what's manual click-ops
-  and what's reproducible." Or you provision a new env and can't remember every
-  checkbox you ticked the first time.
-- **Goal**: Convert all click-ops to Terraform. ONE state file. ONE module if helpful.
-  Local state for now (we move it remote in Phase 11).
-- **Discipline**: ONE env first (just prod). Don't multi-env yet. Don't even use modules
-  if a single `main.tf` is readable.
-- **Artifact**: `terraform apply` reproduces the current GCP project from scratch.
+  and what's reproducible."
+- **Goal**: Single `terraform/main.tf` declares 12 APIs, 2 buckets, 5 datasets, 3 SAs,
+  IAM, and the budget. `terraform plan` shows zero drift against the live infra.
+- **Discipline**: ONE `main.tf` (no modules — ~200 lines stays readable). Local state.
+  Function + Scheduler stay in `deploy.sh` (application code path). GitHub-side glue
+  stays in setup scripts.
+- **Artifact**: `terraform/` directory + `import.sh` to bring existing resources under
+  Terraform management. `terraform apply` reproduces the GCP side of the project.
+
+**Lessons captured during execution**:
+- **Terraform 1.6.0 + Google provider 5.x = `openpgp: key expired` on init**. Same
+  bug crypto-pipeline hit. Fix: use Terraform 1.9.8.
+- **HCL doesn't escape `$` with `\$`** — `display_name = "(~\$5)"` is a parse error.
+  Use literal `$` in HCL strings.
+- **`billingbudgets` API needs `user_project_override = true`** in the provider
+  block, otherwise reads fail with `403 SERVICE_DISABLED` even when enabled. ADC
+  doesn't auto-set a billing project for this specific API.
+- **`grep -qx` treats `[` and `]` as regex classes** — the import-guard in
+  `import.sh` needs `grep -Fxq` (fixed strings) to match Terraform addrs like
+  `google_project_service.apis["storage.googleapis.com"]`.
+- **First apply after import = label-diff only** — the resources exist already; only
+  the `managed_by = "terraform"` labels declared in HCL get added. Apply is
+  functionally a no-op but reconciles the labels.
+- **What stays out of Terraform**: function source (app code), Scheduler (depends on
+  function URL), SA keys (sensitive), GitHub Environment (GitHub side). Real teams
+  draw this line too.
 
 ### Phase 11 — True per-env isolation (Level 3, project-per-env)
 - **Trigger**: "Marketing wants to test a pipeline change against prod data — but
