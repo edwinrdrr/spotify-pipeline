@@ -13,6 +13,33 @@ What you need before doing anything else.
   if you don't have one. **Free tier works** — you do not need Premium.
 - You'll use this account to create a Spotify Developer app in doc 02.
 
+## gcloud CLI (Phase 2+)
+
+Phase 2 introduces a GCP project, so we need the Google Cloud SDK.
+
+```bash
+# Linux
+cd ~
+curl -sSL -o gcloud-cli.tar.gz \
+  https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-linux-x86_64.tar.gz
+tar -xzf gcloud-cli.tar.gz && rm gcloud-cli.tar.gz
+./google-cloud-sdk/install.sh --quiet --path-update=true
+
+# macOS (homebrew)
+brew install --cask google-cloud-sdk
+```
+
+After install, add to `~/.bashrc` (or `~/.zshrc`) and reload:
+```bash
+export PATH="$HOME/google-cloud-sdk/bin:$PATH"
+```
+
+Verify:
+```bash
+gcloud --version | head -1    # → Google Cloud SDK 5xx.x.x or similar
+which bq                       # → bundled with gcloud
+```
+
 ## Python 3.10 or higher
 
 ```bash
@@ -40,6 +67,7 @@ in the repo root.)
 ```bash
 python3 --version            # → 3.10+
 git --version                # → 2.x
+gcloud --version | head -1   # → Google Cloud SDK 5xx.x.x
 ls .env.example snapshot.py  # both should exist
 ```
 

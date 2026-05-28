@@ -6,7 +6,7 @@
 |----|------------------------------------------------|---------------|------------------------|
 | 0  | Scoping                                        | [x] **done**  | `phase-0-scoping`      |
 | 1  | Hacky MVP / data validation (laptop → CSV)     | [x] **done**  | `phase-1-mvp`          |
-| 2  | First cloud landing (single GCP project)       | [ ] not started | —                    |
+| 2  | First cloud landing (single GCP project)       | [~] in PR     | (pending merge)        |
 | 3  | Automate ingestion (Cloud Function + Scheduler)| [ ] not started | —                    |
 | 4  | Add real transform layer (dbt)                 | [ ] not started | —                    |
 | 5  | Repo hygiene polish (see note below)           | [ ] not started | —                    |
@@ -64,13 +64,27 @@ intent honestly); the pivot is documented here and in the Phase 1 PR.
 ### Phase 2 — First cloud landing (single GCP project)
 - **Trigger**: "Cool, the data's on your laptop — but I can't query it. Also, what
   happens when your laptop sleeps / dies / loses the CSV?"
-- **Goal**: Same script, but writing to **GCS** (raw snapshots) and **BigQuery** (a
-  `crypto_raw.snapshots` table or similar) in ONE GCP project. Still run manually from
-  laptop.
-- **Discipline**: ONE project. NO env separation (no `_dev` / `_prod`). NO Terraform. NO
-  CI. NO automation. Click-ops in the console is FINE here — that's the point of Phase 2.
-- **Artifact**: A BigQuery table the stakeholder can query in the console, plus maybe a
-  Looker Studio chart pasted on top.
+- **Goal**: Same script, but writing to **GCS** (raw snapshots) and **BigQuery** in
+  ONE GCP project. Still run manually from laptop.
+- **Discipline**: ONE project (`spotify-pipeline-260528`). NO env separation. NO
+  Terraform (gcloud CLI click-ops). NO CI / automation. ADC, not SA key JSON.
+- **Artifact**: `spotify-pipeline-260528.spotify_raw.top_tracks` — queryable BigQuery
+  table, ~50 rows per daily snapshot. `gs://<project>-spotify-raw/snapshots/` holds the
+  raw CSV.
+
+**Lessons captured during execution**:
+- **Billing-account project quota is 5** — we hit the wall immediately. Cleared by
+  tearing down crypto-pipeline's 4 projects + an abandoned 5th, which freed enough
+  slots. The 5-project cap is the single most common blocker for a new repro.
+- **IAM propagation takes ~30s after project create** — the first
+  `gcloud storage buckets describe` returned "permission denied" even though the bucket
+  was created seconds earlier. Retrying after a beat works.
+- **`billingbudgets.googleapis.com` isn't enabled by default** — separate
+  `gcloud services enable billingbudgets.googleapis.com` is required before the budget
+  command works, and the API enable itself takes ~30s to propagate.
+- **Spotify token endpoint 503 windows sometimes exceed our 15s retry budget** — the
+  script's 4-retry backoff (1+2+4+8s) is enough most of the time but not always.
+  Worth bumping in Phase 3 when running unattended (no human to re-run).
 
 ### Phase 3 — Automate ingestion (Cloud Function + Scheduler)
 - **Trigger**: "Why is the data stale? Did you forget to run it?" — and you're tired of
