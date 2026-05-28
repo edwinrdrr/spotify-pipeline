@@ -4,7 +4,7 @@ A **phases-by-doing** data-engineering learning project. Each phase lands as one
 `main` and gets an annotated git tag at the boundary. `main` is always the latest phase;
 `git checkout phase-N-name` revisits any earlier state.
 
-**Currently at: Phase 1 — Hacky MVP** (one Python script → CSV on laptop)
+**Currently at: Phase 2 — First cloud landing** (laptop → GCS → BigQuery, one GCP project)
 
 ## Why this repo exists
 

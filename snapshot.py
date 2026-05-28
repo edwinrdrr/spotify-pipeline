@@ -1,35 +1,39 @@
-"""Phase 1 — daily snapshot of top tracks for a small set of artists.
+"""Phase 2 — daily artist-top-tracks snapshot, landed in GCS + BigQuery.
 
-Pivot from the original Today's Top Hits design: Spotify deprecated editorial
-playlists and audio-features for newly-created apps in Nov 2024, so we track
-top-tracks per artist instead (endpoint still works for new apps).
+What changed vs Phase 1: instead of writing the CSV to ./data/ on your laptop,
+the script writes it to a tmp file, uploads it to a GCS bucket (one blob per
+day), then runs a BigQuery LoadJob to append into a table. ADC handles auth
+(no SA key JSON).
 
-Phase 1 is intentionally hacky:
-- One file, no abstractions, no retries beyond requests' defaults
-- Artists hardcoded below
-- Writes one CSV per day to ./data/ (gitignored)
+Still intentionally minimal:
+- One file, no abstractions
+- One GCP project (no env separation yet — that's Phase 7+)
+- Manual run from laptop (automation comes in Phase 3)
 """
 import csv
 import datetime as dt
 import os
 import sys
+import tempfile
 import time
 
 import requests
-
-# Default python-requests User-Agent gets 503'd intermittently by Spotify's CDN.
-# Set an explicit one so the script behaves like a normal HTTP client.
-HEADERS = {"User-Agent": "spotify-pipeline/0.1 (+https://github.com/edwinrdrr/spotify-pipeline)"}
-SESSION = requests.Session()
-SESSION.headers.update(HEADERS)
+from google.cloud import bigquery, storage
 
 CLIENT_ID = os.environ.get("SPOTIFY_CLIENT_ID")
 CLIENT_SECRET = os.environ.get("SPOTIFY_CLIENT_SECRET")
-MARKET = os.environ.get("MARKET", "US")  # popularity ranks vary by market
-DATA_DIR = os.environ.get("DATA_DIR", "data")
+MARKET = os.environ.get("MARKET", "US")
 
-# Artists to track. Each gives ~10 top tracks → ~50 rows per snapshot.
-# Phase 5 (repo hygiene polish) can move these to config.
+GCP_PROJECT = os.environ.get("GCP_PROJECT")
+GCS_BUCKET = os.environ.get("GCS_BUCKET") or (f"{GCP_PROJECT}-spotify-raw" if GCP_PROJECT else None)
+BQ_DATASET = os.environ.get("BQ_DATASET", "spotify_raw")
+BQ_TABLE = os.environ.get("BQ_TABLE", "top_tracks")
+
+if not (CLIENT_ID and CLIENT_SECRET):
+    sys.exit("Set SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET (see .env.example).")
+if not GCP_PROJECT:
+    sys.exit("Set GCP_PROJECT to your GCP project id (see .env.example).")
+
 ARTISTS = [
     ("Taylor Swift",    "06HL4z0CvFAxyc27GXpf02"),
     ("Kendrick Lamar",  "2YZyLoL8N0Wb9xBt1NhZWg"),
@@ -38,8 +42,27 @@ ARTISTS = [
     ("Phoebe Bridgers", "1r1uxoy19fzMxunt3ONAkG"),
 ]
 
-if not (CLIENT_ID and CLIENT_SECRET):
-    sys.exit("Set SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET (see .env.example).")
+CSV_HEADER = [
+    "snapshot_date", "artist_id", "artist_name",
+    "rank", "track_id", "track_name",
+    "album_name", "album_release_date", "popularity",
+]
+
+BQ_SCHEMA = [
+    bigquery.SchemaField("snapshot_date",       "DATE",   mode="REQUIRED"),
+    bigquery.SchemaField("artist_id",           "STRING", mode="REQUIRED"),
+    bigquery.SchemaField("artist_name",         "STRING"),
+    bigquery.SchemaField("rank",                "INT64",  mode="REQUIRED"),
+    bigquery.SchemaField("track_id",            "STRING", mode="REQUIRED"),
+    bigquery.SchemaField("track_name",          "STRING"),
+    bigquery.SchemaField("album_name",          "STRING"),
+    bigquery.SchemaField("album_release_date",  "STRING"),  # Spotify returns YYYY / YYYY-MM / YYYY-MM-DD; keep as string
+    bigquery.SchemaField("popularity",          "INT64"),
+]
+
+HEADERS = {"User-Agent": "spotify-pipeline/0.2 (+https://github.com/edwinrdrr/spotify-pipeline)"}
+SESSION = requests.Session()
+SESSION.headers.update(HEADERS)
 
 
 def _request_with_retry(method: str, url: str, **kwargs) -> requests.Response:
@@ -58,7 +81,6 @@ def _request_with_retry(method: str, url: str, **kwargs) -> requests.Response:
 
 
 def get_token() -> str:
-    """Client Credentials OAuth flow — ~1h token, no user scope needed."""
     r = _request_with_retry(
         "POST",
         "https://accounts.spotify.com/api/token",
@@ -69,7 +91,6 @@ def get_token() -> str:
 
 
 def get_top_tracks(token: str, artist_id: str, market: str) -> list[dict]:
-    """Spotify's top ~10 tracks for an artist in a given market, by popularity."""
     r = _request_with_retry(
         "GET",
         f"https://api.spotify.com/v1/artists/{artist_id}/top-tracks",
@@ -79,20 +100,11 @@ def get_top_tracks(token: str, artist_id: str, market: str) -> list[dict]:
     return r.json()["tracks"]
 
 
-def main() -> None:
-    token = get_token()
-    snapshot_date = dt.date.today().isoformat()
-    os.makedirs(DATA_DIR, exist_ok=True)
-    out_path = os.path.join(DATA_DIR, f"snapshot_{snapshot_date}.csv")
-
+def write_csv(path: str, snapshot_date: str, token: str) -> int:
     rows = 0
-    with open(out_path, "w", newline="") as f:
+    with open(path, "w", newline="") as f:
         w = csv.writer(f)
-        w.writerow([
-            "snapshot_date", "artist_id", "artist_name",
-            "rank", "track_id", "track_name",
-            "album_name", "album_release_date", "popularity",
-        ])
+        w.writerow(CSV_HEADER)
         for artist_name, artist_id in ARTISTS:
             for rank, t in enumerate(get_top_tracks(token, artist_id, MARKET), 1):
                 w.writerow([
@@ -101,7 +113,51 @@ def main() -> None:
                     t["album"]["name"], t["album"]["release_date"], t["popularity"],
                 ])
                 rows += 1
-    print(f"Wrote {rows} rows to {out_path}")
+    return rows
+
+
+def upload_to_gcs(local_path: str, snapshot_date: str) -> str:
+    """Upload the CSV to gs://<bucket>/snapshots/snapshot_<date>.csv. Returns the gs:// URI."""
+    client = storage.Client(project=GCP_PROJECT)
+    bucket = client.bucket(GCS_BUCKET)
+    blob_name = f"snapshots/snapshot_{snapshot_date}.csv"
+    blob = bucket.blob(blob_name)
+    blob.upload_from_filename(local_path, content_type="text/csv")
+    return f"gs://{GCS_BUCKET}/{blob_name}"
+
+
+def load_into_bigquery(gcs_uri: str) -> int:
+    """Append the CSV from GCS into <project>.<dataset>.<table>. Returns rows inserted."""
+    bq = bigquery.Client(project=GCP_PROJECT)
+    table_ref = f"{GCP_PROJECT}.{BQ_DATASET}.{BQ_TABLE}"
+    job_config = bigquery.LoadJobConfig(
+        source_format=bigquery.SourceFormat.CSV,
+        skip_leading_rows=1,
+        write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
+        schema=BQ_SCHEMA,
+    )
+    load_job = bq.load_table_from_uri(gcs_uri, table_ref, job_config=job_config)
+    load_job.result()  # blocks until done
+    return load_job.output_rows
+
+
+def main() -> None:
+    token = get_token()
+    snapshot_date = dt.date.today().isoformat()
+
+    with tempfile.NamedTemporaryFile(suffix=".csv", delete=False) as tmp:
+        tmp_path = tmp.name
+    try:
+        rows = write_csv(tmp_path, snapshot_date, token)
+        print(f"Wrote {rows} rows to {tmp_path}")
+
+        gcs_uri = upload_to_gcs(tmp_path, snapshot_date)
+        print(f"Uploaded to {gcs_uri}")
+
+        bq_rows = load_into_bigquery(gcs_uri)
+        print(f"Loaded {bq_rows} rows into {GCP_PROJECT}.{BQ_DATASET}.{BQ_TABLE}")
+    finally:
+        os.unlink(tmp_path)
 
 
 if __name__ == "__main__":
