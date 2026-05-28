@@ -5,7 +5,7 @@
 | #  | Phase                                          | Status        | Tag                    |
 |----|------------------------------------------------|---------------|------------------------|
 | 0  | Scoping                                        | [x] **done**  | `phase-0-scoping`      |
-| 1  | Hacky MVP / data validation (laptop → CSV)     | [ ] not started | —                    |
+| 1  | Hacky MVP / data validation (laptop → CSV)     | [~] in PR     | (pending merge)        |
 | 2  | First cloud landing (single GCP project)       | [ ] not started | —                    |
 | 3  | Automate ingestion (Cloud Function + Scheduler)| [ ] not started | —                    |
 | 4  | Add real transform layer (dbt)                 | [ ] not started | —                    |
@@ -27,6 +27,14 @@
 ### Phase 0 — Scoping
 Goal: define the problem before touching code. Artifact: [`BRIEF.md`](BRIEF.md).
 Phase ends when every `TODO` in BRIEF.md is filled in.
+
+### Phase 1 — Hacky MVP
+Goal: one Python script hits the Spotify public API and writes a daily snapshot of
+Today's Top Hits to a local CSV. No abstractions, no cloud, no automation. Discipline:
+resist the temptation to over-engineer — if it can be one file, it's one file.
+
+**Honest caveat**: Spotify deprecated `/v1/audio-features` for new apps in Nov 2024.
+Phase 1 drops it; playlist items + popularity carry the analysis fine for now.
 
 ### Phase 5 — Repo hygiene polish (concession noted)
 The "classic" Phase 5 is "introduce git" — but this repo bends that. Git was used from
