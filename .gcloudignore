@@ -27,6 +27,10 @@ JOURNEY.md
 BRIEF.md
 *.md
 
+# Phase 4 dbt — local-only, never shipped to the function
+dbt/
+requirements-dbt.txt
+
 # CI / IDE
 .github/
 .vscode/

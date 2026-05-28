@@ -4,7 +4,7 @@ A **phases-by-doing** data-engineering learning project. Each phase lands as one
 `main` and gets an annotated git tag at the boundary. `main` is always the latest phase;
 `git checkout phase-N-name` revisits any earlier state.
 
-**Currently at: Phase 3 — Automated ingestion** (Cloud Function + daily Cloud Scheduler; your laptop is no longer in the critical path)
+**Currently at: Phase 4 — dbt transform layer** (staging + `fct_track_popularity_daily` mart with day-over-day status / deltas)
 
 ## Why this repo exists
 

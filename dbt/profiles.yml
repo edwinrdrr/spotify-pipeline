@@ -1,0 +1,12 @@
+spotify_pipeline:
+  outputs:
+    dev:
+      type: bigquery
+      method: oauth
+      project: "{{ env_var('GCP_PROJECT') }}"
+      dataset: spotify_analytics
+      location: US
+      threads: 4
+      timeout_seconds: 300
+      priority: interactive
+  target: dev
