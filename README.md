@@ -4,7 +4,7 @@ A **phases-by-doing** data-engineering learning project. Each phase lands as one
 `main` and gets an annotated git tag at the boundary. `main` is always the latest phase;
 `git checkout phase-N-name` revisits any earlier state.
 
-**Currently at: Phase 5 — Repo hygiene polish** (LICENSE, dbt deprecation cleared, BRIEF.md banner; no new features)
+**Currently at: Phase 6 — First CI** (GitHub Actions runs `dbt build` on every PR against a separate `spotify_analytics_ci` dataset)
 
 ## Why this repo exists
 
