@@ -20,4 +20,5 @@ models:
         tests:
           - not_null
           - accepted_values:
-              values: ['new', 'climbed', 'dropped', 'stable']
+              arguments:
+                values: ['new', 'climbed', 'dropped', 'stable']

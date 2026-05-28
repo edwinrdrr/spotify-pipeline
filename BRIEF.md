@@ -1,5 +1,24 @@
 # Project brief — Spotify listening pipeline
 
+> ## ⚠️ Phase 0 artifact — kept for historical honesty
+>
+> This brief captures what we *thought* we'd build at Phase 0 — including a project
+> shape (Today's Top Hits playlist churn) that we pivoted away from in Phase 1 when
+> end-to-end testing revealed Spotify's Nov 2024 deprecation blocks editorial
+> playlists for newly-created apps.
+>
+> The pivot landed on **artist top-tracks** (5 hardcoded artists, daily snapshot)
+> instead — same project shape (popularity churn over time), different data source.
+>
+> **For what's actually being built now**: see [`JOURNEY.md`](JOURNEY.md) (phase
+> tracker + lessons captured per phase) and [`docs/setup/`](docs/setup/) (current
+> reproduction steps).
+>
+> This file is left as-is below because a phases-by-doing repo owes future-me an
+> honest record of "what was the question on day 0?"
+
+---
+
 **Phase 0 artifact.** Defined the problem before writing any code.
 
 ---
