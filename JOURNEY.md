@@ -9,7 +9,7 @@
 | 2  | First cloud landing (single GCP project)       | [x] **done**  | `phase-2-cloud-landing`|
 | 3  | Automate ingestion (Cloud Function + Scheduler)| [x] **done**  | `phase-3-automation`   |
 | 4  | Add real transform layer (dbt)                 | [x] **done**  | `phase-4-dbt`          |
-| 5  | Repo hygiene polish (see note below)           | [ ] not started | —                    |
+| 5  | Repo hygiene polish (see note below)           | [~] in PR     | (pending merge)        |
 | 6  | First CI: tests on PR                          | [ ] not started | —                    |
 | 7  | Multi-env via dataset suffix (Level 1)         | [ ] not started | —                    |
 | 8  | Slim CI + ephemeral schemas                    | [ ] not started | —                    |
@@ -148,14 +148,39 @@ intent honestly); the pivot is documented here and in the Phase 1 PR.
 - **Trigger**: Someone tries to follow your README and gets lost. Or you notice the
   `docs/setup/` still mentions an endpoint we pivoted away from.
 - **Goal**: Secret-history sweep, README polish, LICENSE, dependabot, anything that
-  drifted during the hacky Phases 1–4. "Before going public" cleanup — even if you've
-  been public since Phase 0.
+  drifted during the hacky Phases 1–4.
 - **Discipline**: NO new features. NO refactors that change behavior. Cleanup only.
 - **Artifact**: A repo that's pleasant to walk into for someone who isn't you.
 
 > **Concession noted**: the "classic" Phase 5 is "introduce git" — but this repo bends
 > that. Git was used from Phase 0 because tagging phase boundaries requires it. Treat
 > Phase 5 here as *polish* instead.
+
+**What this phase actually did**:
+- **Secret-history sweep — clean.** No committed secrets (no PRIVATE KEY blocks, no
+  AWS keys, no GitHub tokens), no committed `.env` / `*-key.json` paths, no Spotify
+  client IDs/secrets in any committed file across history. The `.gitignore` from
+  Phase 0 was right.
+- **Fixed the `dbt 1.11` deprecation** flagged in Phase 4: `accepted_values` test on
+  `fct_track_popularity_daily.status` needed its arguments under an `arguments:` key
+  (per `MissingArgumentsPropertyInGenericTestDeprecation`). `dbt build` now prints
+  `WARN=0` cleanly.
+- **Added `LICENSE`** — MIT. Standard for portfolio repos.
+- **Added a banner at the top of `BRIEF.md`** explaining it's a Phase 0 historical
+  record (the project pivoted from playlist churn to artist top-tracks in Phase 1)
+  and pointing the reader at `JOURNEY.md` + `docs/setup/` for what's actually being
+  built. BRIEF.md's body left intact so the "what did I think on day 0?" record stays
+  honest.
+- **README polish** — pointer block updated for the current shape (5 phases done,
+  ~30 min to reproduce through Phase 4, LICENSE link added).
+
+**Lessons captured during execution**:
+- **Phase 5 takes 5 minutes total when prior phases stayed disciplined** — the bulk
+  of "hygiene polish" was just running the sweep (clean) and fixing one dbt warning
+  the previous phase already flagged. If you find Phase 5 producing 10+ files of
+  cleanup, the earlier phases drifted; that's a signal.
+- **`dbt 1.10+` test syntax** wants generic test arguments under `arguments:` not at
+  the top level. Easy fix; flagged here in case Phase 6/7 add more tests.
 
 ### Phase 6 — First CI: tests on PR
 - **Trigger**: "I just broke a dbt model and didn't notice until prod" — or you push a

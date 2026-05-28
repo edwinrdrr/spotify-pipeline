@@ -4,7 +4,7 @@ A **phases-by-doing** data-engineering learning project. Each phase lands as one
 `main` and gets an annotated git tag at the boundary. `main` is always the latest phase;
 `git checkout phase-N-name` revisits any earlier state.
 
-**Currently at: Phase 4 — dbt transform layer** (staging + `fct_track_popularity_daily` mart with day-over-day status / deltas)
+**Currently at: Phase 5 — Repo hygiene polish** (LICENSE, dbt deprecation cleared, BRIEF.md banner; no new features)
 
 ## Why this repo exists
 
@@ -17,10 +17,12 @@ temptation to skip ahead just because I know what the end looks like.
 ## Where to look
 
 - **[`docs/setup/`](docs/setup/README.md)** — reproduce what's currently on `main`
-  (~8 min for Phase 1)
-- [`BRIEF.md`](BRIEF.md) — the Phase 0 artifact: what we set out to build and why
+  (~30 min through Phase 4)
 - [`JOURNEY.md`](JOURNEY.md) — the phase tracker (where we are, what's done, what's
-  next, what pivoted)
+  next, lessons captured per phase)
+- [`BRIEF.md`](BRIEF.md) — the Phase 0 artifact (kept as honest historical record —
+  has a banner explaining the pivot)
+- [`LICENSE`](LICENSE) — MIT
 
 ## Reproducing any phase
 
