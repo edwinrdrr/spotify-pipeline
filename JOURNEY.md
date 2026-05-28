@@ -6,7 +6,7 @@
 |----|------------------------------------------------|---------------|------------------------|
 | 0  | Scoping                                        | [x] **done**  | `phase-0-scoping`      |
 | 1  | Hacky MVP / data validation (laptop → CSV)     | [x] **done**  | `phase-1-mvp`          |
-| 2  | First cloud landing (single GCP project)       | [~] in PR     | (pending merge)        |
+| 2  | First cloud landing (single GCP project)       | [x] **done**  | `phase-2-cloud-landing`|
 | 3  | Automate ingestion (Cloud Function + Scheduler)| [ ] not started | —                    |
 | 4  | Add real transform layer (dbt)                 | [ ] not started | —                    |
 | 5  | Repo hygiene polish (see note below)           | [ ] not started | —                    |
