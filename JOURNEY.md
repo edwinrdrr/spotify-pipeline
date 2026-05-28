@@ -15,7 +15,7 @@
 | 8  | Slim CI + ephemeral schemas                    | [x] **done**  | `phase-8-slim-ci`      |
 | 9  | Manual prod-deploy gate (required reviewer)    | [x] **done**  | `phase-9-prod-gate`    |
 | 10 | Infra-as-code (Terraform)                      | [x] **done**  | `phase-10-terraform`   |
-| 11 | True per-env isolation (Level 3, project-per-env) | [ ] not started | —                 |
+| 11 | True per-env isolation (Level 3, project-per-env) | [~] in PR     | (pending merge)    |
 | 12 | Terraform CI (plan-on-PR / apply-on-merge)     | [ ] not started | —                    |
 | 13 | Observability + alerting                       | [ ] not started | —                    |
 | 14 | Orchestration upgrade (Airflow/Prefect/Dagster)| [ ] not started | —                    |
@@ -317,16 +317,40 @@ intent honestly); the pivot is documented here and in the Phase 1 PR.
   draw this line too.
 
 ### Phase 11 — True per-env isolation (Level 3, project-per-env)
-- **Trigger**: "Marketing wants to test a pipeline change against prod data — but
-  they can't have edit on prod." Or an oops in dev deletes a prod table because they
-  share IAM.
-- **Goal**: Refactor into per-env GCP projects. WIF replaces SA-key JSON. Multi-env
-  Terraform with remote state. Per-env GitHub Environments + secrets.
-- **Discipline**: Per the planning conversation — **pretend the `crypto-pipeline` GCP
-  projects don't exist**. Provision a fresh project hierarchy. The muscle memory has to
-  be real, not a copy-paste from the other repo.
-- **Artifact**: 4 GCP projects (infra, dev, stg, prod), WIF-authed CI, completely
-  independent envs.
+- **Trigger**: "Marketing wants to test a pipeline change against prod data — but they
+  can't have edit on prod." Or an oops in dev deletes a prod table because they share IAM.
+- **Goal**: 4 GCP projects (`infra` + `dev` + `stg` + `prod`); WIF replaces SA-key JSON;
+  multi-env Terraform (`modules/` + `envs/`) with remote state in
+  `gs://<infra>-tfstate`; per-env GitHub Environments with per-Env `GCP_PROJECT_*` secrets.
+- **Discipline**: Pretend the old `spotify-pipeline-260528` doesn't exist. Provision
+  fresh. The muscle memory has to be real, not copy-paste from earlier phases.
+  Resource names INSIDE each env project drop the env suffix (project IS the env).
+- **Artifact**: `bootstrap.sh` provisions 4 projects + Terraform + WIF.
+  `setup-github-environments.sh` wires GitHub side. `deploy.sh` ships function to
+  staging (PAUSED) + prod (ENABLED). PR CI authenticates keylessly via WIF as
+  `dbt-ci@<dev-project>`, builds ephemeral schema in dev, defers to prod manifest.
+
+**Lessons captured during execution**:
+- **WIF attribute condition** must pin on `repository_id` (immutable numeric) not
+  `repository` (mutable string) — survives repo renames.
+- **`google_iam_workload_identity_pool_provider` attribute_mapping** needs each field
+  you'll reference downstream (`google.subject` is mandatory). Missing an attribute
+  silently breaks impersonation.
+- **State backend chicken-and-egg**: `envs/infra/` Terraform manages the tfstate
+  bucket that holds its own state. Bootstrap creates the bucket out-of-band first,
+  then `terraform import google_storage_bucket.tfstate <name>` brings it into infra's
+  state so future applies are consistent.
+- **`terraform init -reconfigure`** is required if you change a backend config; the
+  more common path is fresh init in a fresh `envs/<env>/` directory.
+- **dbt-ci SA needs ci-state bucket access too** — not just BQ. The infra module
+  grants `roles/storage.objectAdmin` on the ci-state bucket to each env's dbt-ci SA.
+- **Per-Env secrets via `environment:` key** — declaring `environment: dev` on a job
+  makes `secrets.GCP_PROJECT_DEV` resolve to the Environment-scoped secret, not the
+  repo-level one. That's the GitHub way to scope creds per env without WIF or extra
+  IAM.
+- **5-project billing-account quota** + the legacy `spotify-pipeline-260528`
+  immediately puts you at 5/5 after bootstrap. Tear down the old project once the new
+  prod is verified to free a slot.
 
 ### Phase 12 — Terraform CI (plan-on-PR / apply-on-merge)
 - **Trigger**: "Sarah pushed an infra change last week and I had no way to review the

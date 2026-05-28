@@ -4,7 +4,7 @@ A **phases-by-doing** data-engineering learning project. Each phase lands as one
 `main` and gets an annotated git tag at the boundary. `main` is always the latest phase;
 `git checkout phase-N-name` revisits any earlier state.
 
-**Currently at: Phase 10 — Infrastructure as code (Terraform)** (single `terraform/main.tf` manages all GCP infra except function code; local state)
+**Currently at: Phase 11 — Level-3 refactor** (4 GCP projects: infra/dev/stg/prod · WIF (keyless CI auth) · multi-env Terraform with remote state · per-env GitHub Environments)
 
 ## Why this repo exists
 

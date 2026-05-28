@@ -1,7 +1,6 @@
 name: dbt CI cleanup (drop ephemeral schema)
 
-# Phase 8: when a PR is closed (merged or abandoned), drop the per-PR ephemeral
-# dataset spotify_analytics_ci_pr_<n>. Keeps the project tidy without manual sweeps.
+# Phase 11: WIF + dev project. On PR close, drops spotify_analytics_ci_pr_<n>.
 
 on:
   pull_request:
@@ -9,27 +8,31 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   drop-schema:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    environment: dev
+
     env:
-      GCP_PROJECT: ${{ secrets.GCP_PROJECT }}
+      GCP_PROJECT_DEV: ${{ secrets.GCP_PROJECT_DEV }}
       DBT_CI_DATASET: spotify_analytics_ci_pr_${{ github.event.pull_request.number }}
 
     steps:
       - uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: dbt-ci@${{ secrets.GCP_PROJECT_DEV }}.iam.gserviceaccount.com
 
       - uses: google-github-actions/setup-gcloud@v2
 
       - name: Drop ephemeral CI dataset (no-op if missing)
         run: |
-          if bq --project_id="$GCP_PROJECT" ls --format=prettyjson 2>/dev/null \
+          if bq --project_id="$GCP_PROJECT_DEV" ls --format=prettyjson 2>/dev/null \
                   | grep -q "\"$DBT_CI_DATASET\""; then
-            bq --project_id="$GCP_PROJECT" rm -r -d -f "$DBT_CI_DATASET"
+            bq --project_id="$GCP_PROJECT_DEV" rm -r -d -f "$DBT_CI_DATASET"
             echo "Dropped $DBT_CI_DATASET"
           else
             echo "$DBT_CI_DATASET not present — nothing to drop"

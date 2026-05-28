@@ -1,48 +1,40 @@
-# Phase 7: env separation via dataset suffix inside the one GCP project.
-# All targets identical except `dataset:`. Auth via GOOGLE_APPLICATION_CREDENTIALS
-# (ADC locally, SA key in CI/deploy workflows). Phase 11 splits projects per env.
+# Phase 11: per-env GCP projects. Resource names INSIDE each project drop the env
+# suffix — the project IS the env, so the dataset is just `spotify_analytics`
+# everywhere. CI overrides `dataset:` via DBT_CI_DATASET for per-PR ephemerals.
+#
+# Auth: WIF in CI/deploy workflows (google-github-actions/auth@v2 sets ADC).
+#       ADC locally (gcloud auth application-default login).
+
 spotify_pipeline:
   outputs:
-    dev:        # local laptop -> dataset created/owned by you via ADC
+    dev:
       type: bigquery
       method: oauth
-      project: "{{ env_var('GCP_PROJECT') }}"
-      dataset: spotify_analytics_dev
+      project: "{{ env_var('GCP_PROJECT_DEV') }}"
+      dataset: "{{ env_var('DBT_CI_DATASET', 'spotify_analytics') }}"
       location: US
       threads: 4
       timeout_seconds: 300
       priority: interactive
 
-    ci:         # PR validation (.github/workflows/dbt-ci.yml)
+    staging:
       type: bigquery
       method: oauth
-      project: "{{ env_var('GCP_PROJECT') }}"
-      # Phase 8: per-PR ephemeral schema. Workflow sets DBT_CI_DATASET=spotify_analytics_ci_pr_<n>
-      # for PRs; local manual runs (no env var) fall back to the shared spotify_analytics_ci.
-      dataset: "{{ env_var('DBT_CI_DATASET', 'spotify_analytics_ci') }}"
+      project: "{{ env_var('GCP_PROJECT_STAGING') }}"
+      dataset: spotify_analytics
       location: US
       threads: 4
       timeout_seconds: 300
       priority: interactive
 
-    staging:    # auto-deploy on merge to main (.github/workflows/dbt-deploy-staging.yml)
+    prod:
       type: bigquery
       method: oauth
-      project: "{{ env_var('GCP_PROJECT') }}"
-      dataset: spotify_analytics_staging
+      project: "{{ env_var('GCP_PROJECT_PROD') }}"
+      dataset: spotify_analytics
       location: US
       threads: 4
       timeout_seconds: 300
       priority: interactive
 
-    prod:       # manual promote (.github/workflows/dbt-deploy-prod.yml, workflow_dispatch)
-      type: bigquery
-      method: oauth
-      project: "{{ env_var('GCP_PROJECT') }}"
-      dataset: spotify_analytics_prod
-      location: US
-      threads: 4
-      timeout_seconds: 300
-      priority: interactive
-
-  target: dev   # local default; explicit --target overrides
+  target: dev

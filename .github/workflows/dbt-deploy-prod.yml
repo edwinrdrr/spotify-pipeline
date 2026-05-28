@@ -1,8 +1,6 @@
 name: dbt deploy → prod
 
-# Phase 7: manual promote (workflow_dispatch). Phase 8: republish prod manifest.
-# Phase 9: auto-fire on merge to main, gated by the `production` GitHub Environment's
-# required-reviewer rule. workflow_dispatch is kept for manual rebuilds.
+# Phase 11: WIF + prod project. Auto-fire on merge, gated by `production` Environment.
 
 on:
   push:
@@ -15,18 +13,18 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   prod:
     runs-on: ubuntu-latest
-    # The `production` Environment requires reviewer approval before this job starts.
-    # Configure via scripts/setup-prod-gate.sh.
-    environment: production
     timeout-minutes: 10
+    environment: production    # required-reviewer gate; configured by setup-github-environments.sh
+
     env:
-      GCP_PROJECT: ${{ secrets.GCP_PROJECT }}
+      GCP_PROJECT_PROD: ${{ secrets.GCP_PROJECT_PROD }}
       DBT_PROFILES_DIR: ${{ github.workspace }}/dbt
-      CI_STATE_BUCKET: ${{ secrets.GCP_PROJECT }}-ci-state
+      CI_STATE_BUCKET: ${{ vars.CI_STATE_BUCKET }}
 
     steps:
       - uses: actions/checkout@v4
@@ -40,17 +38,10 @@ jobs:
       - name: Install dbt
         run: pip install -r requirements-dbt.txt
 
-      - name: Write GCP credentials
-        env:
-          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
-        run: |
-          umask 077
-          echo "$GCP_SA_KEY" > "${RUNNER_TEMP}/sa-key.json"
-          echo "GOOGLE_APPLICATION_CREDENTIALS=${RUNNER_TEMP}/sa-key.json" >> "$GITHUB_ENV"
-
       - uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: dbt-ci@${{ secrets.GCP_PROJECT_PROD }}.iam.gserviceaccount.com
 
       - uses: google-github-actions/setup-gcloud@v2
 
@@ -61,4 +52,3 @@ jobs:
       - name: Republish prod manifest (Slim CI baseline)
         run: |
           gsutil cp dbt/target/manifest.json "gs://${CI_STATE_BUCKET}/dbt-state/manifest.json"
-          echo "Manifest republished: gs://${CI_STATE_BUCKET}/dbt-state/manifest.json"

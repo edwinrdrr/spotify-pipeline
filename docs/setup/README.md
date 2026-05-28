@@ -1,6 +1,15 @@
 # Setup — reproduce this project end-to-end
 
-Follow these docs **in order** to reproduce what's currently on `main`.
+`main` is currently at **Phase 11** (Level-3: 4 GCP projects + WIF). For the fastest
+end-to-end reproduction, skip directly to:
+
+1. [`01-prerequisites.md`](01-prerequisites.md) — install tools
+2. [`02-spotify-app.md`](02-spotify-app.md) — register a Spotify app
+3. [`12-level-3.md`](12-level-3.md) — bootstrap 4 projects + WIF + Environments + deploy
+
+Docs 03–11 describe earlier phases' setups; they're still accurate **at their phase tag**
+(`git checkout phase-N-...` and re-read that tag's `docs/setup/` for the Level-1 path).
+On `main`, they're historical references — the Phase-11 reproducer is doc 12.
 
 | # | Doc | Time |
 |---|-----|------|
@@ -15,8 +24,9 @@ Follow these docs **in order** to reproduce what's currently on `main`.
 | 9 | [`09-slim-ci.md`](09-slim-ci.md) — Slim CI deferral + per-PR ephemeral schemas + auto-cleanup | 4 min |
 | 10 | [`10-prod-gate.md`](10-prod-gate.md) — required-reviewer gate on prod via GitHub Environment | 2 min |
 | 11 | [`11-terraform.md`](11-terraform.md) — Terraform-ize buckets/datasets/SAs/IAM/APIs/budget (Phase 10) | 5 min |
+| 12 | [`12-level-3.md`](12-level-3.md) — Level-3 refactor: 4 GCP projects, WIF, multi-env Terraform (Phase 11) | 15 min |
 
-Total: ~52 minutes through Phase 10.
+Total: ~67 minutes through Phase 11. (Phase 11 dominates — 4 projects to provision + WIF + workflow migration.)
 
 > **Reproducing an earlier phase**: this folder is always the setup for whatever is
 > on `main`. To reproduce Phase N's state, `git checkout phase-N-tag` and read
