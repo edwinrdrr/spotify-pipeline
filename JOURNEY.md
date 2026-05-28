@@ -9,7 +9,7 @@
 | 2  | First cloud landing (single GCP project)       | [x] **done**  | `phase-2-cloud-landing`|
 | 3  | Automate ingestion (Cloud Function + Scheduler)| [x] **done**  | `phase-3-automation`   |
 | 4  | Add real transform layer (dbt)                 | [x] **done**  | `phase-4-dbt`          |
-| 5  | Repo hygiene polish (see note below)           | [~] in PR     | (pending merge)        |
+| 5  | Repo hygiene polish (see note below)           | [x] **done**  | `phase-5-hygiene`      |
 | 6  | First CI: tests on PR                          | [ ] not started | —                    |
 | 7  | Multi-env via dataset suffix (Level 1)         | [ ] not started | —                    |
 | 8  | Slim CI + ephemeral schemas                    | [ ] not started | —                    |
