@@ -1,10 +1,16 @@
-name: dbt deploy → prod (manual)
+name: dbt deploy → prod
 
-# Phase 7: manual promote. Phase 8: also republish the manifest to GCS so the next
-# PR's Slim CI can defer unchanged models to prod.
-# Phase 9 will add a required-reviewer gate via GitHub Environments.
+# Phase 7: manual promote (workflow_dispatch). Phase 8: republish prod manifest.
+# Phase 9: auto-fire on merge to main, gated by the `production` GitHub Environment's
+# required-reviewer rule. workflow_dispatch is kept for manual rebuilds.
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'dbt/**'
+      - 'requirements-dbt.txt'
+      - '.github/workflows/dbt-deploy-prod.yml'
   workflow_dispatch:
 
 permissions:
@@ -13,6 +19,9 @@ permissions:
 jobs:
   prod:
     runs-on: ubuntu-latest
+    # The `production` Environment requires reviewer approval before this job starts.
+    # Configure via scripts/setup-prod-gate.sh.
+    environment: production
     timeout-minutes: 10
     env:
       GCP_PROJECT: ${{ secrets.GCP_PROJECT }}

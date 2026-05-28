@@ -13,7 +13,7 @@
 | 6  | First CI: tests on PR                          | [x] **done**  | `phase-6-first-ci`     |
 | 7  | Multi-env via dataset suffix (Level 1)         | [x] **done**  | `phase-7-multi-env`    |
 | 8  | Slim CI + ephemeral schemas                    | [x] **done**  | `phase-8-slim-ci`      |
-| 9  | Manual prod-deploy gate (required reviewer)    | [ ] not started | —                    |
+| 9  | Manual prod-deploy gate (required reviewer)    | [~] in PR     | (pending merge)        |
 | 10 | Infra-as-code (Terraform)                      | [ ] not started | —                    |
 | 11 | True per-env isolation (Level 3, project-per-env) | [ ] not started | —                 |
 | 12 | Terraform CI (plan-on-PR / apply-on-merge)     | [ ] not started | —                    |
@@ -265,12 +265,27 @@ intent honestly); the pivot is documented here and in the Phase 1 PR.
 ### Phase 9 — Manual prod-deploy gate (required reviewer)
 - **Trigger**: "I accidentally merged a PR that wasn't ready and it went to prod." Or
   "we should have an 'are you sure?' gate before prod."
-- **Goal**: GitHub Environments with `production` requiring required-reviewer approval.
-  Staging auto-deploys on merge; prod waits for human approval.
-- **Discipline**: ONE Environment with ONE rule. No notifications integrations yet
-  (Phase 13). No wait-timer.
-- **Artifact**: PRs to `main` show "production: waiting for review" until someone clicks
-  Approve.
+- **Goal**: `production` GitHub Environment with required-reviewer = me. Prod workflow
+  now also fires on push-to-main; the Environment holds it in `waiting` until I
+  approve via UI or `gh api`.
+- **Discipline**: ONE Environment with ONE rule (required-reviewer). No wait-timer.
+  No Slack notifications (Phase 13). No `staging` Environment.
+- **Artifact**: `setup-prod-gate.sh` creates the Environment via `gh api`;
+  `dbt-deploy-prod.yml` job declares `environment: production`.
+
+**Lessons captured during execution**:
+- **`prevent_self_review` defaults differ between API and UI**: the REST API defaults
+  to `false` (you can approve yourself), the Web UI defaults to `true`. For solo work
+  the script must explicitly set `false` — otherwise YOU can't approve YOUR OWN
+  deploy and prod runs sit waiting forever.
+- **Required-reviewer Environments are public-repo or paid-plan**: GitHub Free won't
+  enforce the protection on private repos; you need public OR Pro/Team/Enterprise.
+  This repo is public (decided in Phase 0) so it works without extra cost.
+- **The workflow needs `environment: production` on the JOB**, not at workflow-level.
+  Top-level `environment:` is invalid syntax.
+- **`workflow_dispatch` is kept alongside `push`**: real teams want auto-on-merge
+  (the common case) AND ability to manually rebuild prod for one-off cases (config
+  drift, restoring from a failed run). Both paths hit the same approval gate.
 
 ### Phase 10 — Infra-as-code (Terraform)
 - **Trigger**: "What's actually in our GCP project? I can't tell what's manual click-ops

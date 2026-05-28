@@ -4,7 +4,7 @@ A **phases-by-doing** data-engineering learning project. Each phase lands as one
 `main` and gets an annotated git tag at the boundary. `main` is always the latest phase;
 `git checkout phase-N-name` revisits any earlier state.
 
-**Currently at: Phase 8 — Slim CI + ephemeral schemas** (per-PR `spotify_analytics_ci_pr_<n>`; `state:modified.body+ --defer` against prod manifest; auto-cleanup on PR close)
+**Currently at: Phase 9 — Required-reviewer gate on prod** (`production` GitHub Environment; every prod deploy waits for human Approve)
 
 ## Why this repo exists
 
