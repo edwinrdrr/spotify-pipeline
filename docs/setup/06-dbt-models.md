@@ -1,14 +1,14 @@
 # 06 — dbt staging + marts (Phase 4 transform layer)
 
 You have raw daily snapshots in `<project>.spotify_raw.top_tracks` (doc 05). Now layer
-dbt on top to produce **`spotify_analytics.fct_track_popularity_daily`** — one row per
+dbt on top to produce **`spotify_analytics_dev.fct_track_popularity_daily`** — one row per
 (snapshot_date, artist_id, track_id) with `prev_rank`, `prev_popularity`, deltas, and
 a `status` column (`new` / `climbed` / `dropped` / `stable`) that answers the
 stakeholder question *"which tracks moved up / down / new since yesterday?"*
 
 ## What you'll have when done
 
-- A new BigQuery dataset `spotify_analytics`
+- A new BigQuery dataset `spotify_analytics_dev`
 - One **staging view**: `stg_top_tracks` — dedupes the raw table within
   (date, artist, track), adds composite keys
 - One **mart table**: `fct_track_popularity_daily` — joins each row to its previous
@@ -40,13 +40,18 @@ dbt Core only — no dbt Cloud (Phase 4 discipline: local-only; CI comes in Phas
 > `google-cloud-bigquery`, `functions-framework`). The function's `requirements.txt`
 > stays minimal.
 
-## Step 2: create the analytics dataset
+## Step 2: create the env datasets
+
+Phase 7 split the analytics layer into `dev`/`staging`/`prod` (see doc 08). Create
+all four (incl. CI from Phase 6) so dbt has a place to write in every target:
 
 ```bash
-bq --project_id="$GCP_PROJECT" mk --dataset --location=US spotify_analytics
+for env in dev ci staging prod; do
+    bq --project_id="$GCP_PROJECT" mk --dataset --location=US "spotify_analytics_${env}"
+done
 ```
 
-dbt can auto-create datasets too, but creating it explicitly here makes the IAM /
+dbt can auto-create datasets too, but creating them explicitly here makes the IAM /
 location explicit and surfaces any quota/permission issues before dbt runs.
 
 ## Step 3: tell dbt where to find profiles.yml
@@ -94,21 +99,21 @@ From the repo root:
 # status mix per day
 bq query --use_legacy_sql=false --format=pretty --project_id="$GCP_PROJECT" \
   "SELECT snapshot_date, status, COUNT(*) AS tracks
-   FROM \`$GCP_PROJECT.spotify_analytics.fct_track_popularity_daily\`
+   FROM \`$GCP_PROJECT.spotify_analytics_dev.fct_track_popularity_daily\`
    GROUP BY snapshot_date, status
    ORDER BY snapshot_date DESC, status"
 
 # today's top 5 by popularity
 bq query --use_legacy_sql=false --format=pretty --project_id="$GCP_PROJECT" \
   "SELECT artist_name, track_name, rank, popularity, status, popularity_change
-   FROM \`$GCP_PROJECT.spotify_analytics.fct_track_popularity_daily\`
+   FROM \`$GCP_PROJECT.spotify_analytics_dev.fct_track_popularity_daily\`
    WHERE snapshot_date = CURRENT_DATE()
    ORDER BY popularity DESC LIMIT 5"
 
 # biggest climbers since yesterday (after 2+ days of data)
 bq query --use_legacy_sql=false --format=pretty --project_id="$GCP_PROJECT" \
   "SELECT artist_name, track_name, prev_rank, rank, rank_change
-   FROM \`$GCP_PROJECT.spotify_analytics.fct_track_popularity_daily\`
+   FROM \`$GCP_PROJECT.spotify_analytics_dev.fct_track_popularity_daily\`
    WHERE status = 'climbed'
    ORDER BY rank_change DESC LIMIT 10"
 ```
@@ -162,8 +167,8 @@ dbt/
 
 You have:
 - `spotify_analytics.stg_top_tracks` (view) — deduped raw
-- `spotify_analytics.fct_track_popularity_daily` (table) — answers the stakeholder question
+- `spotify_analytics_dev.fct_track_popularity_daily` (table) — answers the stakeholder question
 - 14 dbt tests passing
 
-Phase 4 closed. Phase 5 (repo hygiene polish) is next — sweep secrets, polish README,
-add LICENSE.
+Phase 4 closed. Phase 7 (multi-env via dataset suffix) splits this dataset into
+`_dev`/`_ci`/`_staging`/`_prod` — see doc 08 for the promote flow.

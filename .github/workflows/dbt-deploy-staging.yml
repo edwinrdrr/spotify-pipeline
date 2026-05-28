@@ -1,0 +1,46 @@
+name: dbt deploy → staging
+
+# Phase 7: auto-deploy on merge to main. Builds against spotify_analytics_staging.
+# Phase 9 will add a required-reviewer gate before the prod workflow runs.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'dbt/**'
+      - 'requirements-dbt.txt'
+      - '.github/workflows/dbt-deploy-staging.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  staging:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GCP_PROJECT: ${{ secrets.GCP_PROJECT }}
+      DBT_PROFILES_DIR: ${{ github.workspace }}/dbt
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: requirements-dbt.txt
+
+      - name: Install dbt
+        run: pip install -r requirements-dbt.txt
+
+      - name: Write GCP credentials to a tmp file
+        env:
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+        run: |
+          umask 077
+          echo "$GCP_SA_KEY" > "${RUNNER_TEMP}/sa-key.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=${RUNNER_TEMP}/sa-key.json" >> "$GITHUB_ENV"
+
+      - name: dbt build (--target staging)
+        working-directory: dbt
+        run: dbt build --target staging --no-partial-parse
