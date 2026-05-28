@@ -12,7 +12,7 @@
 | 5  | Repo hygiene polish (see note below)           | [x] **done**  | `phase-5-hygiene`      |
 | 6  | First CI: tests on PR                          | [x] **done**  | `phase-6-first-ci`     |
 | 7  | Multi-env via dataset suffix (Level 1)         | [x] **done**  | `phase-7-multi-env`    |
-| 8  | Slim CI + ephemeral schemas                    | [ ] not started | —                    |
+| 8  | Slim CI + ephemeral schemas                    | [~] in PR     | (pending merge)        |
 | 9  | Manual prod-deploy gate (required reviewer)    | [ ] not started | —                    |
 | 10 | Infra-as-code (Terraform)                      | [ ] not started | —                    |
 | 11 | True per-env isolation (Level 3, project-per-env) | [ ] not started | —                 |
@@ -236,10 +236,31 @@ intent honestly); the pivot is documented here and in the Phase 1 PR.
 ### Phase 8 — Slim CI + ephemeral schemas
 - **Trigger**: "CI takes 4 minutes per PR. I have a 1-line change. Why is it rebuilding
   everything?"
-- **Goal**: dbt `state:modified.body+ --defer` only rebuilds changed models. Per-PR
-  ephemeral schemas (`dbt_ci_pr_<n>`) auto-cleanup after merge.
-- **Discipline**: Speed/isolation improvement ONLY. NO new tests, NO new envs.
-- **Artifact**: ~30-second CI runs for typical PRs.
+- **Goal**: dbt `state:modified.body+ --defer` against the prod manifest; per-PR
+  `spotify_analytics_ci_pr_<n>` schemas auto-dropped on PR close.
+- **Discipline**: Speed/isolation improvement ONLY. NO new tests, NO new envs, NO new
+  models, NO new SAs.
+- **Artifact**: Three workflow changes — `dbt-ci.yml` fetches manifest + builds slim;
+  `dbt-deploy-prod.yml` republishes manifest after build; `dbt-ci-cleanup.yml` drops
+  per-PR schemas on close. One new bucket `gs://<project>-ci-state`. One new env var
+  `DBT_CI_DATASET` to scope the schema per PR.
+
+**Lessons captured during execution**:
+- **Chicken-and-egg on the manifest**: Slim CI defers to a prod manifest at
+  `gs://<bucket>/dbt-state/manifest.json`, which doesn't exist until *after* Phase 8
+  merges and someone runs the prod workflow. The CI workflow handles this by
+  `gsutil ls`-then-fallback: if no manifest, full build (slow but correct). After the
+  first post-Phase-8 prod run uploads it, Slim CI kicks in.
+- **`state:modified.body+` ignores yaml changes** — a doc-only `.yml` edit picks up
+  zero models. Use `state:modified+` (no `.body`) if you want yaml/test changes to
+  trigger rebuilds. Trade-off: yaml-only PRs would otherwise burn ~30s for no
+  behavior change.
+- **Per-PR ephemeral via env var** is cleaner than dbt `--vars`. `profiles.yml` reads
+  `env_var('DBT_CI_DATASET', 'spotify_analytics_ci')` — workflow exports per PR; local
+  manual `dbt build --target ci` falls back to the shared dataset.
+- **Cleanup workflow runs on `pull_request: closed`** — fires for both merged AND
+  abandoned PRs. `bq ls`-then-rm guard makes the cleanup a no-op when the dataset
+  wasn't created (e.g., paths filter excluded the PR from CI).
 
 ### Phase 9 — Manual prod-deploy gate (required reviewer)
 - **Trigger**: "I accidentally merged a PR that wasn't ready and it went to prod." Or

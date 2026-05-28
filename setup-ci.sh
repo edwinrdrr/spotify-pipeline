@@ -26,12 +26,24 @@ SA="${SA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
 
 echo "=== Phase 6 CI setup for ${PROJECT_ID} (repo: ${GITHUB_REPO}) ==="
 
-echo "--- 1/6: create spotify_analytics_ci dataset ---"
+echo "--- 1/6: create spotify_analytics_ci dataset + ci-state bucket ---"
 if bq --project_id="$PROJECT_ID" ls --format=prettyjson 2>/dev/null \
         | grep -q '"spotify_analytics_ci"'; then
-    echo "  (already exists)"
+    echo "  spotify_analytics_ci dataset: already exists"
 else
     bq --project_id="$PROJECT_ID" mk --dataset --location=US spotify_analytics_ci
+fi
+
+# Phase 8: ci-state bucket holds the prod dbt manifest for Slim CI deferral.
+CI_STATE_BUCKET="${PROJECT_ID}-ci-state"
+if gcloud storage buckets describe "gs://${CI_STATE_BUCKET}" >/dev/null 2>&1; then
+    echo "  gs://${CI_STATE_BUCKET}: already exists"
+else
+    gcloud storage buckets create "gs://${CI_STATE_BUCKET}" \
+        --project="$PROJECT_ID" \
+        --location=US \
+        --uniform-bucket-level-access > /dev/null
+    echo "  gs://${CI_STATE_BUCKET}: created"
 fi
 
 echo "--- 2/6: create dbt-ci service account ---"
@@ -67,6 +79,12 @@ gcloud projects add-iam-policy-binding "$PROJECT_ID" \
     --member="serviceAccount:${SA}" \
     --role="roles/bigquery.dataEditor" \
     --condition=None > /dev/null
+
+# Phase 8: grant storage.objectAdmin on the ci-state bucket so the prod workflow
+# can republish the manifest and CI runs can fetch it.
+gcloud storage buckets add-iam-policy-binding "gs://${CI_STATE_BUCKET}" \
+    --member="serviceAccount:${SA}" \
+    --role="roles/storage.objectAdmin" > /dev/null
 
 echo "--- 4/6: mint a JSON key for the SA ---"
 KEY_PATH="$(mktemp -t dbt-ci-key.XXXXXX.json)"
