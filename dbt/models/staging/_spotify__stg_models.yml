@@ -1,0 +1,15 @@
+version: 2
+
+models:
+  - name: stg_top_tracks
+    description: "Pass-through cleanup of the raw daily snapshots, deduped within (date, artist, track)."
+    columns:
+      - name: snapshot_track_key
+        description: "Composite key (snapshot_date|artist_id|track_id) — natural primary key."
+        tests:
+          - not_null
+          - unique
+      - name: artist_track_key
+        description: "Composite key (artist_id|track_id) — for cross-day window functions in marts."
+        tests:
+          - not_null

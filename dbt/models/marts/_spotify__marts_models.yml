@@ -1,0 +1,23 @@
+version: 2
+
+models:
+  - name: fct_track_popularity_daily
+    description: |
+      One row per (snapshot_date, artist_id, track_id) with rank, popularity, and
+      day-over-day deltas. The `status` column ('new'/'climbed'/'dropped'/'stable')
+      answers the stakeholder question "which tracks moved up/down/new since yesterday."
+    columns:
+      - name: snapshot_track_key
+        description: "Composite key (snapshot_date|artist_id|track_id) — natural primary key."
+        tests:
+          - not_null
+          - unique
+      - name: snapshot_date
+        tests:
+          - not_null
+      - name: status
+        description: "'new' (first time seen), 'climbed' (rank improved), 'dropped' (rank worsened), 'stable' (no change)."
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['new', 'climbed', 'dropped', 'stable']

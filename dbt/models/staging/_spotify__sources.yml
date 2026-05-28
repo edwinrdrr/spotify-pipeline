@@ -1,0 +1,29 @@
+version: 2
+
+sources:
+  - name: spotify_raw
+    description: "Raw daily snapshots written by snapshot.py (Phase 2+)."
+    database: "{{ target.project }}"
+    schema: spotify_raw
+    tables:
+      - name: top_tracks
+        description: "One row per (snapshot_date, artist_id, rank). ~50 rows/day."
+        columns:
+          - name: snapshot_date
+            description: "Date the snapshot was taken (UTC)."
+            tests:
+              - not_null
+          - name: artist_id
+            description: "Spotify artist ID."
+            tests:
+              - not_null
+          - name: track_id
+            description: "Spotify track ID."
+            tests:
+              - not_null
+          - name: rank
+            description: "1..10, popularity rank within the artist's top tracks."
+            tests:
+              - not_null
+          - name: popularity
+            description: "Spotify popularity score 0..100."

@@ -8,7 +8,7 @@
 | 1  | Hacky MVP / data validation (laptop → CSV)     | [x] **done**  | `phase-1-mvp`          |
 | 2  | First cloud landing (single GCP project)       | [x] **done**  | `phase-2-cloud-landing`|
 | 3  | Automate ingestion (Cloud Function + Scheduler)| [x] **done**  | `phase-3-automation`   |
-| 4  | Add real transform layer (dbt)                 | [ ] not started | —                    |
+| 4  | Add real transform layer (dbt)                 | [~] in PR     | (pending merge)        |
 | 5  | Repo hygiene polish (see note below)           | [ ] not started | —                    |
 | 6  | First CI: tests on PR                          | [ ] not started | —                    |
 | 7  | Multi-env via dataset suffix (Level 1)         | [ ] not started | —                    |
@@ -119,13 +119,30 @@ intent honestly); the pivot is documented here and in the Phase 1 PR.
 
 ### Phase 4 — Add real transform layer (dbt)
 - **Trigger**: "Hey, can you tell me which tracks moved up / down / new since last week?"
-  — and you realize raw snapshots aren't analyst-friendly.
-- **Goal**: Introduce dbt Core. `staging` models clean raw snapshots, `marts` compute
-  the churn / change metrics. Tests on sources (`not_null`, `unique`).
-- **Discipline**: dbt Core, not Cloud. Run locally first. 3–5 tests, not 30. NO CI yet
-  (Phase 6).
-- **Artifact**: `marts/fct_track_popularity_daily` (or similar) that answers the
-  stakeholder's question.
+  — raw snapshots aren't analyst-friendly.
+- **Goal**: dbt Core. `staging` cleans + dedupes raw snapshots, `marts` joins each row
+  to its previous day via `lag()` and computes a `status` column
+  (`new`/`climbed`/`dropped`/`stable`).
+- **Discipline**: dbt Core, not Cloud. Local run only. 5 tests, not 30. NO CI yet
+  (Phase 6). dbt deps in a separate `requirements-dbt.txt` so they don't ship to the
+  Cloud Function.
+- **Artifact**: `spotify_analytics.fct_track_popularity_daily` — answers the stakeholder
+  question with one query.
+
+**Lessons captured during execution**:
+- **First `dbt build` failed the uniqueness test** — the Phase 2 manual run + Phase 3
+  function-triggered run on the same day both wrote 50 rows, producing 50 duplicates
+  per (snapshot_date, artist_id, track_id). Real-world fix: `stg_top_tracks` defensively
+  dedupes with `qualify row_number() over (...) = 1`. The mart stays correct even when
+  upstream is messy (which it always eventually will be).
+- **`profiles.yml` checked into the repo, env-var-driven** — `project: env_var('GCP_PROJECT')`.
+  No secrets in the file; `DBT_PROFILES_DIR=$PWD/dbt` points at it. New contributors
+  don't have to set up `~/.dbt/`.
+- **dbt warnings for `MissingArgumentsPropertyInGenericTestDeprecation`** — one occurrence
+  somewhere in our YAML; dbt 1.10+ wants tests with `arguments:` wrapping. Not blocking
+  in 1.11, will become an error eventually. Phase 5 (repo hygiene polish) can clean this up.
+- **`qualify` clause** (BigQuery extension to standard SQL) is the cleanest dedupe
+  pattern — no extra CTE just for the row_number filter.
 
 ### Phase 5 — Repo hygiene polish
 - **Trigger**: Someone tries to follow your README and gets lost. Or you notice the
