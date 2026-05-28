@@ -29,6 +29,20 @@ have 5 (e.g., you also did `crypto-pipeline`), `gcloud projects create` will fai
 - **Request quota increase**: Cloud Console → Billing → Quotas (takes hours / days)
 - **Use a different billing account**
 
+## Heads up: propagation delays (you will hit these)
+
+GCP IAM and Service Enablement aren't instant — they take **~30 seconds** to propagate
+after a write. If a command fails right after a related write, wait 30 seconds and
+retry before assuming it's broken. Common manifestations in this doc:
+
+| After this step | What can fail next | Fix |
+|---|---|---|
+| 5 (Enable APIs) | A call using the newly-enabled API rejects with `SERVICE_DISABLED` for ~30s | Wait, retry |
+| 6 (Create bucket) | `gcloud storage buckets describe` or `--versioning` returns "permission denied" right after `create` | Wait, retry |
+| 9 (Create budget) | `SERVICE_DISABLED` if `billingbudgets` was JUST enabled in step 5 | Wait ~30s, retry |
+
+This is normal GCP behavior, not something we configured wrong.
+
 ## Steps
 
 ### Step 1: Pick a project ID
