@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+.python-version
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Secrets — NEVER commit
+.env
+.env.*
+!.env.example
+*-key.json
+*.pem
+credentials.json
+
+# Local data
+data/
+
+# IDE / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Terraform (used from Phase 10+)
+**/.terraform/
+**/*.tfstate
+**/*.tfstate.*
+**/terraform.tfvars
