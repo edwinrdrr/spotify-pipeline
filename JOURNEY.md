@@ -15,7 +15,7 @@
 | 8  | Slim CI + ephemeral schemas                    | [x] **done**  | `phase-8-slim-ci`      |
 | 9  | Manual prod-deploy gate (required reviewer)    | [x] **done**  | `phase-9-prod-gate`    |
 | 10 | Infra-as-code (Terraform)                      | [x] **done**  | `phase-10-terraform`   |
-| 11 | True per-env isolation (Level 3, project-per-env) | [~] in PR     | (pending merge)    |
+| 11 | True per-env isolation (Level 3, project-per-env) | [x] **done**  | `phase-11-level-3` |
 | 12 | Terraform CI (plan-on-PR / apply-on-merge)     | [ ] not started | —                    |
 | 13 | Observability + alerting                       | [ ] not started | —                    |
 | 14 | Orchestration upgrade (Airflow/Prefect/Dagster)| [ ] not started | —                    |
