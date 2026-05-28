@@ -45,9 +45,13 @@ fi
 gh secret set WIF_PROVIDER --repo="$GITHUB_REPO" --body "$WIF_PROVIDER"
 echo "  repo secret: WIF_PROVIDER = ${WIF_PROVIDER}"
 
-# Repo-level variable: CI_STATE_BUCKET (used by Slim CI workflows)
-gh variable set CI_STATE_BUCKET --repo="$GITHUB_REPO" --body "$CI_STATE_BUCKET"
-echo "  repo var: CI_STATE_BUCKET = ${CI_STATE_BUCKET}"
+# Repo-level variables: CI_STATE_BUCKET (Slim CI) + project IDs (terraform-ci.yml)
+gh variable set CI_STATE_BUCKET    --repo="$GITHUB_REPO" --body "$CI_STATE_BUCKET"
+gh variable set INFRA_PROJECT_ID   --repo="$GITHUB_REPO" --body "$INFRA"
+gh variable set DEV_PROJECT_ID     --repo="$GITHUB_REPO" --body "$DEV"
+gh variable set STAGING_PROJECT_ID --repo="$GITHUB_REPO" --body "$STG"
+gh variable set PROD_PROJECT_ID    --repo="$GITHUB_REPO" --body "$PROD"
+echo "  repo vars: CI_STATE_BUCKET + per-env project IDs"
 
 # Remove legacy secrets from earlier phases
 for s in GCP_SA_KEY GCP_PROJECT; do

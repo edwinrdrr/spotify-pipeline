@@ -120,7 +120,51 @@ resource "google_storage_bucket_iam_member" "ci_state_writers" {
   member   = "serviceAccount:${each.key}"
 }
 
-# WIF — repo-scoped impersonation of per-env dbt-ci SAs.
+# ─── Phase 12: tf-runner SA for terraform plan/apply CI ──────────────────────
+
+resource "google_service_account" "tf_runner" {
+  account_id   = "tf-runner"
+  display_name = "Terraform CI runner (plan-on-PR + apply-on-merge)"
+  project      = var.project_id
+}
+
+# tf-runner needs editor on each project to manage the same resources Terraform
+# already manages (buckets, datasets, SAs, IAM, APIs). Editor is broad but standard
+# for a TF runner SA; the review/approval gate is at the GitHub Actions / Environment
+# level (terraform-apply requires reviewer approval).
+locals {
+  tf_runner_projects = [
+    var.project_id,
+    var.dev_project_id,
+    var.staging_project_id,
+    var.prod_project_id,
+  ]
+}
+
+resource "google_project_iam_member" "tf_runner_editor" {
+  for_each = toset(local.tf_runner_projects)
+  project  = each.key
+  role     = "roles/editor"
+  member   = "serviceAccount:${google_service_account.tf_runner.email}"
+}
+
+# Need projectIamAdmin too — `roles/editor` doesn't include setIamPolicy on the
+# project, which Terraform needs for google_project_iam_member resources.
+resource "google_project_iam_member" "tf_runner_iam_admin" {
+  for_each = toset(local.tf_runner_projects)
+  project  = each.key
+  role     = "roles/resourcemanager.projectIamAdmin"
+  member   = "serviceAccount:${google_service_account.tf_runner.email}"
+}
+
+# Read+write access to tfstate bucket (plan needs read; apply needs write).
+resource "google_storage_bucket_iam_member" "tf_runner_tfstate" {
+  bucket = google_storage_bucket.tfstate.name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${google_service_account.tf_runner.email}"
+}
+
+# WIF — repo-scoped impersonation of per-env dbt-ci SAs + tf-runner.
 module "wif" {
   source               = "../../modules/wif"
   project_id           = var.project_id
@@ -131,7 +175,11 @@ module "wif" {
     { sa_email = "dbt-ci@${var.dev_project_id}.iam.gserviceaccount.com",     project_id = var.dev_project_id },
     { sa_email = "dbt-ci@${var.staging_project_id}.iam.gserviceaccount.com", project_id = var.staging_project_id },
     { sa_email = "dbt-ci@${var.prod_project_id}.iam.gserviceaccount.com",    project_id = var.prod_project_id },
+    { sa_email = "tf-runner@${var.project_id}.iam.gserviceaccount.com",        project_id = var.project_id },
   ]
+
+  # tf-runner SA must exist before WIF impersonation binding references it.
+  depends_on = [google_service_account.tf_runner]
 }
 
 output "tfstate_bucket" {
@@ -144,4 +192,8 @@ output "ci_state_bucket" {
 
 output "wif_provider_name" {
   value = module.wif.provider_name
+}
+
+output "tf_runner_sa_email" {
+  value = google_service_account.tf_runner.email
 }

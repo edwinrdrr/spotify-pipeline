@@ -16,7 +16,7 @@
 | 9  | Manual prod-deploy gate (required reviewer)    | [x] **done**  | `phase-9-prod-gate`    |
 | 10 | Infra-as-code (Terraform)                      | [x] **done**  | `phase-10-terraform`   |
 | 11 | True per-env isolation (Level 3, project-per-env) | [x] **done**  | `phase-11-level-3` |
-| 12 | Terraform CI (plan-on-PR / apply-on-merge)     | [ ] not started | —                    |
+| 12 | Terraform CI (plan-on-PR / apply-on-merge)     | [~] in PR     | (pending merge)        |
 | 13 | Observability + alerting                       | [ ] not started | —                    |
 | 14 | Orchestration upgrade (Airflow/Prefect/Dagster)| [ ] not started | —                    |
 | 15 | Data quality + lineage                         | [ ] not started | —                    |
@@ -355,10 +355,29 @@ intent honestly); the pivot is documented here and in the Phase 1 PR.
 ### Phase 12 — Terraform CI (plan-on-PR / apply-on-merge)
 - **Trigger**: "Sarah pushed an infra change last week and I had no way to review the
   plan before it applied."
-- **Goal**: `terraform-ci.yml` — plan-on-PR comments the plan diff, apply-on-merge ships
-  it. A read-only `tf-runner` SA does plans (no write access to infra without merge).
-- **Discipline**: NO auto-apply on PR. Plan output is for review; apply is human-merged.
-- **Artifact**: PRs touching `terraform/**` get a plan comment; merging applies it.
+- **Goal**: `.github/workflows/terraform-ci.yml` — PR matrix runs `terraform plan` per
+  env and upserts a per-env comment; merge to main runs `terraform apply` per env.
+- **Discipline**: NO auto-apply on PR. Plan output is for review; merge IS the apply
+  trigger. WIF-authed `tf-runner@infra` SA does both (single SA for simplicity).
+- **Artifact**: `tf-runner` SA in Terraform; comprehensive `terraform-ci.yml`; per-env
+  project-id repo variables; doc 13.
+
+**Lessons captured during execution**:
+- **`roles/editor` does NOT include `setIamPolicy`** on the project — `tf-runner`
+  also needs `roles/resourcemanager.projectIamAdmin` to manage
+  `google_project_iam_member` resources. Missing it was the first "broken apply" the
+  CI hit.
+- **WIF impersonation references a SA created in the same apply** = race condition.
+  `module.wif depends_on = [google_service_account.tf_runner]` enforces order. The
+  better long-term fix is `for_each` keys that don't depend on computed values — I
+  worked around with a static `tf-runner@<project>.iam.gserviceaccount.com` string.
+- **`terraform plan` with `-lock=false`** lets concurrent PR plans run without
+  blocking each other. Plans don't change state so locks are unnecessary.
+- **Comment upsert pattern** (search by marker, update or create) prevents PR-comment
+  spam on consecutive pushes. The marker is the visible header line, not a HTML
+  comment — readable in the GitHub UI too.
+- **Repo Variables (not Secrets) for non-sensitive identifiers** — project IDs are
+  fine in `vars.*`. Lets workflows reference them without `secrets:` permissions.
 
 ### Phase 13 — Observability + alerting
 - **Trigger**: "The pipeline silently stopped 3 days ago and nobody noticed" — or "the
