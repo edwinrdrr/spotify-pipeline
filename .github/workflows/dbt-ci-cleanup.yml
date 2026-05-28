@@ -1,0 +1,36 @@
+name: dbt CI cleanup (drop ephemeral schema)
+
+# Phase 8: when a PR is closed (merged or abandoned), drop the per-PR ephemeral
+# dataset spotify_analytics_ci_pr_<n>. Keeps the project tidy without manual sweeps.
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: read
+
+jobs:
+  drop-schema:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GCP_PROJECT: ${{ secrets.GCP_PROJECT }}
+      DBT_CI_DATASET: spotify_analytics_ci_pr_${{ github.event.pull_request.number }}
+
+    steps:
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Drop ephemeral CI dataset (no-op if missing)
+        run: |
+          if bq --project_id="$GCP_PROJECT" ls --format=prettyjson 2>/dev/null \
+                  | grep -q "\"$DBT_CI_DATASET\""; then
+            bq --project_id="$GCP_PROJECT" rm -r -d -f "$DBT_CI_DATASET"
+            echo "Dropped $DBT_CI_DATASET"
+          else
+            echo "$DBT_CI_DATASET not present — nothing to drop"
+          fi

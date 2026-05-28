@@ -17,7 +17,9 @@ spotify_pipeline:
       type: bigquery
       method: oauth
       project: "{{ env_var('GCP_PROJECT') }}"
-      dataset: spotify_analytics_ci
+      # Phase 8: per-PR ephemeral schema. Workflow sets DBT_CI_DATASET=spotify_analytics_ci_pr_<n>
+      # for PRs; local manual runs (no env var) fall back to the shared spotify_analytics_ci.
+      dataset: "{{ env_var('DBT_CI_DATASET', 'spotify_analytics_ci') }}"
       location: US
       threads: 4
       timeout_seconds: 300
