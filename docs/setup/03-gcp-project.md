@@ -81,15 +81,20 @@ authenticate first (next step), then come back and run it.
 
 ### Step 5: Enable APIs
 
+`billingbudgets.googleapis.com` isn't in GCP's default-enabled set — you need it for
+step 9. Enable all four together so step 9 doesn't trip:
+
 ```bash
 gcloud services enable \
   storage.googleapis.com \
   bigquery.googleapis.com \
   cloudresourcemanager.googleapis.com \
+  billingbudgets.googleapis.com \
   --project="$PROJECT_ID"
 ```
 
-This takes ~30 seconds.
+This takes ~30 seconds to return, and another ~30 seconds before downstream API calls
+will accept (see "propagation delays" above).
 
 ### Step 6: Create the GCS bucket
 
@@ -98,8 +103,14 @@ gcloud storage buckets create "gs://${PROJECT_ID}-spotify-raw" \
   --project="$PROJECT_ID" \
   --location=US \
   --uniform-bucket-level-access
+
+# IAM may need ~30s to propagate after create; if the next command errors, wait, retry.
 gcloud storage buckets update "gs://${PROJECT_ID}-spotify-raw" --versioning
 ```
+
+If `--versioning` fails with `GcsApiError` or a permission error right after the
+`create` succeeds: the bucket WAS created, you just hit IAM propagation lag. Wait
+30 seconds and retry the `update` command.
 
 Why object versioning ON: if you accidentally overwrite a snapshot, the previous
 version is recoverable for 30 days. Free tier covers this for our tiny CSVs.
@@ -125,24 +136,42 @@ A browser opens. Sign in with your Google account, grant access, close the tab.
 
 ### Step 9: Set a budget alert (~$5)
 
-Make accidental cost loud. The amount currency must match your billing account; if it's
-USD use `--budget-amount=5USD`. If it's another currency (e.g. IDR), omit the currency
-and pass the native amount (`80000` ≈ $5 in IDR).
+Make accidental cost loud. **Check your billing account currency first** — the budget
+API rejects mismatches with `INVALID_ARGUMENT`:
+
+```bash
+gcloud billing accounts describe "$BILLING_ACCOUNT_ID" --format='value(currencyCode)'
+# → USD, IDR, EUR, JPY, etc.
+```
+
+Pick the amount to match your currency:
+- **USD** account → `--budget-amount=5USD`
+- **Non-USD** account → pass the native amount **without a currency suffix**.
+  Approx ≈ $5: IDR `80000`, EUR `4`, JPY `750` (look yours up if it's not listed).
 
 ```bash
 PROJECT_NUMBER=$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')
 
+# Pick ONE based on your currency from above:
+AMOUNT=5USD       # USD billing account
+# AMOUNT=80000   # IDR billing account (~$5)
+# AMOUNT=4       # EUR billing account (~$5)
+
 gcloud billing budgets create \
   --billing-account="$BILLING_ACCOUNT_ID" \
   --display-name="$PROJECT_ID (~\$5)" \
-  --budget-amount=5USD \
+  --budget-amount="$AMOUNT" \
   --threshold-rule=percent=0.5 \
   --threshold-rule=percent=0.9 \
   --threshold-rule=percent=1.0 \
   --filter-projects="projects/$PROJECT_NUMBER"
 ```
 
-If you get `INVALID_ARGUMENT` from the currency, retry without `USD`: `--budget-amount=5`.
+If this returns `SERVICE_DISABLED` right after step 5: `billingbudgets` API is still
+propagating. Wait 30s, retry.
+
+If it returns `INVALID_ARGUMENT`: currency mismatch. Re-check `currencyCode` from the
+`describe` command above and adjust `AMOUNT`.
 
 ## Verify
 
