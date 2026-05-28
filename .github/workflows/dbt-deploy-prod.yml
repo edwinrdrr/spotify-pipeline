@@ -1,0 +1,42 @@
+name: dbt deploy → prod (manual)
+
+# Phase 7: manual promote. Anyone with repo write can click "Run workflow" in the
+# Actions UI to deploy current `main` to prod. Phase 9 adds a required-reviewer gate
+# via GitHub Environments so even the trigger requires approval.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  prod:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GCP_PROJECT: ${{ secrets.GCP_PROJECT }}
+      DBT_PROFILES_DIR: ${{ github.workspace }}/dbt
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: requirements-dbt.txt
+
+      - name: Install dbt
+        run: pip install -r requirements-dbt.txt
+
+      - name: Write GCP credentials to a tmp file
+        env:
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+        run: |
+          umask 077
+          echo "$GCP_SA_KEY" > "${RUNNER_TEMP}/sa-key.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=${RUNNER_TEMP}/sa-key.json" >> "$GITHUB_ENV"
+
+      - name: dbt build (--target prod)
+        working-directory: dbt
+        run: dbt build --target prod --no-partial-parse

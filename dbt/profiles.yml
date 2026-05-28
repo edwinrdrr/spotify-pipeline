@@ -1,19 +1,19 @@
+# Phase 7: env separation via dataset suffix inside the one GCP project.
+# All targets identical except `dataset:`. Auth via GOOGLE_APPLICATION_CREDENTIALS
+# (ADC locally, SA key in CI/deploy workflows). Phase 11 splits projects per env.
 spotify_pipeline:
   outputs:
-    dev:
+    dev:        # local laptop -> dataset created/owned by you via ADC
       type: bigquery
       method: oauth
       project: "{{ env_var('GCP_PROJECT') }}"
-      dataset: spotify_analytics
+      dataset: spotify_analytics_dev
       location: US
       threads: 4
       timeout_seconds: 300
       priority: interactive
 
-    # ci: same shape as dev, different dataset. method=oauth still — auth comes from
-    # GOOGLE_APPLICATION_CREDENTIALS (CI workflow writes the SA key to a tmp file
-    # and exports the env var). Phase 11 will swap this for WIF (keyless).
-    ci:
+    ci:         # PR validation (.github/workflows/dbt-ci.yml)
       type: bigquery
       method: oauth
       project: "{{ env_var('GCP_PROJECT') }}"
@@ -23,4 +23,24 @@ spotify_pipeline:
       timeout_seconds: 300
       priority: interactive
 
-  target: dev
+    staging:    # auto-deploy on merge to main (.github/workflows/dbt-deploy-staging.yml)
+      type: bigquery
+      method: oauth
+      project: "{{ env_var('GCP_PROJECT') }}"
+      dataset: spotify_analytics_staging
+      location: US
+      threads: 4
+      timeout_seconds: 300
+      priority: interactive
+
+    prod:       # manual promote (.github/workflows/dbt-deploy-prod.yml, workflow_dispatch)
+      type: bigquery
+      method: oauth
+      project: "{{ env_var('GCP_PROJECT') }}"
+      dataset: spotify_analytics_prod
+      location: US
+      threads: 4
+      timeout_seconds: 300
+      priority: interactive
+
+  target: dev   # local default; explicit --target overrides

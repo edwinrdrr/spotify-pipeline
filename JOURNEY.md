@@ -11,7 +11,7 @@
 | 4  | Add real transform layer (dbt)                 | [x] **done**  | `phase-4-dbt`          |
 | 5  | Repo hygiene polish (see note below)           | [x] **done**  | `phase-5-hygiene`      |
 | 6  | First CI: tests on PR                          | [x] **done**  | `phase-6-first-ci`     |
-| 7  | Multi-env via dataset suffix (Level 1)         | [ ] not started | —                    |
+| 7  | Multi-env via dataset suffix (Level 1)         | [~] in PR     | (pending merge)        |
 | 8  | Slim CI + ephemeral schemas                    | [ ] not started | —                    |
 | 9  | Manual prod-deploy gate (required reviewer)    | [ ] not started | —                    |
 | 10 | Infra-as-code (Terraform)                      | [ ] not started | —                    |
@@ -210,12 +210,28 @@ intent honestly); the pivot is documented here and in the Phase 1 PR.
 - **Trigger**: "Your tests are creating weird intermediate tables in the analytics
   dataset and the dashboard is showing nulls." Or your local `dbt build` wipes a prod
   table.
-- **Goal**: Introduce `dev` / `staging` / `prod` as BigQuery dataset suffixes inside
-  ONE GCP project. CI deploys to staging on merge to `main`; manual promote to prod.
-- **Discipline**: SINGLE GCP project. The cheapest possible isolation. NO per-env GCP
-  projects yet (Phase 11).
-- **Artifact**: `crypto_analytics_dev` / `crypto_analytics_staging` / `crypto_analytics_prod`
-  datasets, CI promotes through them.
+- **Goal**: Four BigQuery datasets inside the one GCP project: `spotify_analytics_dev`
+  (local), `_ci` (PR validation, from Phase 6), `_staging` (auto on merge), `_prod`
+  (manual promote). Legacy single `spotify_analytics` dataset dropped.
+- **Discipline**: SINGLE GCP project. NO new SAs (reuse the Phase-6 `dbt-ci`). NO
+  required-reviewer (Phase 9). NO Slim CI / ephemeral schemas (Phase 8). Cheapest
+  possible isolation.
+- **Artifact**: Two new workflows — `dbt-deploy-staging.yml` (auto on merge to main
+  touching `dbt/**`) and `dbt-deploy-prod.yml` (`workflow_dispatch` only).
+
+**Lessons captured during execution**:
+- **`bq rm -rfd` syntax was wrong** — gcloud's `bq` wants `rm -r -d -f` (separate
+  flags). Quick gotcha, easy fix.
+- **No new IAM needed** — Phase 6's project-level `bigquery.jobUser` +
+  `bigquery.dataEditor` on the dbt-ci SA already lets it write to any new dataset in
+  the project. Phase 7 just creates the datasets and points `--target` at them.
+  This is the "Level 1 isolation" win — minimal new infra.
+- **Staging-deploy paths filter is load-bearing** — without `paths: ['dbt/**', ...]`
+  every merge to main (incl. doc-only PRs) would deploy. Phase 8+ workflows that touch
+  prod should think about this carefully.
+- **Local dev target must default to `dev`** in `profiles.yml`'s `target:` field —
+  otherwise `dbt build` (no `--target`) silently targets prod, which is the
+  career-ending kind of mistake this whole phase exists to prevent.
 
 ### Phase 8 — Slim CI + ephemeral schemas
 - **Trigger**: "CI takes 4 minutes per PR. I have a 1-line change. Why is it rebuilding
