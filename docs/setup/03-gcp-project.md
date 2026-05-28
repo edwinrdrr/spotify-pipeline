@@ -195,7 +195,8 @@ gcloud projects describe "$PROJECT_ID" --format='value(name,projectId,lifecycleS
 gcloud billing projects describe "$PROJECT_ID" --format='value(billingEnabled)'   # → True
 
 # bucket + versioning
-gcloud storage buckets describe "gs://${PROJECT_ID}-spotify-raw" --format='value(versioning.enabled)'   # → True
+# NB: the field is versioning_enabled (snake_case at the top level), NOT versioning.enabled
+gcloud storage buckets describe "gs://${PROJECT_ID}-spotify-raw" --format='value(versioning_enabled)'   # → True
 
 # dataset
 bq --project_id="$PROJECT_ID" ls --format=pretty | grep spotify_raw
