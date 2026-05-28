@@ -10,7 +10,7 @@
 | 3  | Automate ingestion (Cloud Function + Scheduler)| [x] **done**  | `phase-3-automation`   |
 | 4  | Add real transform layer (dbt)                 | [x] **done**  | `phase-4-dbt`          |
 | 5  | Repo hygiene polish (see note below)           | [x] **done**  | `phase-5-hygiene`      |
-| 6  | First CI: tests on PR                          | [ ] not started | —                    |
+| 6  | First CI: tests on PR                          | [~] in PR     | (pending merge)        |
 | 7  | Multi-env via dataset suffix (Level 1)         | [ ] not started | —                    |
 | 8  | Slim CI + ephemeral schemas                    | [ ] not started | —                    |
 | 9  | Manual prod-deploy gate (required reviewer)    | [ ] not started | —                    |
@@ -185,11 +185,26 @@ intent honestly); the pivot is documented here and in the Phase 1 PR.
 ### Phase 6 — First CI: tests on PR
 - **Trigger**: "I just broke a dbt model and didn't notice until prod" — or you push a
   SQL syntax error and the next scheduled run fails silently.
-- **Goal**: GitHub Actions runs `dbt compile` + `dbt test` on every PR against a `dev`
-  BigQuery dataset. PR fails → fix before merge.
-- **Discipline**: NO deployment yet. CI just validates; humans still deploy. NO Slim
-  CI, NO ephemeral schemas (Phase 8).
-- **Artifact**: A green check on PRs that means "won't break on merge."
+- **Goal**: `.github/workflows/dbt-ci.yml` runs `dbt build --target ci` on every PR
+  that touches `dbt/**`. PR fails → fix before merge.
+- **Discipline**: NO deployment yet. CI just validates; humans still deploy. NO Slim CI
+  (Phase 8), NO ephemeral schemas (Phase 8), NO WIF (Phase 11). One single
+  `spotify_analytics_ci` dataset that every PR overwrites.
+- **Artifact**: A green check on PRs that means "your changes parse + compile + tests
+  pass against fresh data."
+
+**Lessons captured during execution**:
+- **`bq add-iam-policy-binding` needs allowlisting** in Workspaces accounts; the
+  command rejects with `This feature requires allowlisting`. `gcloud alpha bq datasets
+  add-iam-policy-binding` works but needs the alpha component group installed. Path of
+  least resistance for Phase 6: project-level IAM grants (`jobUser` + `dataEditor` on
+  the whole project). Real Phase 7+ narrows this.
+- **Two Phase 6 tradeoffs explicitly accepted**: (1) SA key JSON in a GitHub Secret
+  (long-lived, manual rotation) — Phase 11 swaps for WIF; (2) project-level IAM —
+  CI SA can in theory write to prod `spotify_analytics`, mitigated only by the
+  workflow always passing `--target ci`. Phase 7 / Phase 11 narrow this.
+- **`setup-ci.sh` mints + uploads + deletes the SA key in one script** so the key
+  never sits on disk longer than the upload. `shred -u` removes the temp file.
 
 ### Phase 7 — Multi-env via dataset suffix (Level 1)
 - **Trigger**: "Your tests are creating weird intermediate tables in the analytics

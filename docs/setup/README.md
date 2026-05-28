@@ -10,8 +10,9 @@ Follow these docs **in order** to reproduce what's currently on `main`.
 | 4 | [`04-run-end-to-end.md`](04-run-end-to-end.md) — `.env`, virtualenv, run the snapshot locally as a sanity check | 3 min |
 | 5 | [`05-deploy-function.md`](05-deploy-function.md) — deploy as Cloud Function + daily Cloud Scheduler | 5 min |
 | 6 | [`06-dbt-models.md`](06-dbt-models.md) — dbt staging + marts on top of the raw table | 5 min |
+| 7 | [`07-ci-pipeline.md`](07-ci-pipeline.md) — GitHub Actions CI: `dbt build` on every PR | 5 min |
 
-Total: ~30 minutes for Phase 4.
+Total: ~35 minutes through Phase 6.
 
 > **Reproducing an earlier phase**: this folder is always the setup for whatever is
 > on `main`. To reproduce Phase N's state, `git checkout phase-N-tag` and read

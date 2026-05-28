@@ -9,4 +9,18 @@ spotify_pipeline:
       threads: 4
       timeout_seconds: 300
       priority: interactive
+
+    # ci: same shape as dev, different dataset. method=oauth still — auth comes from
+    # GOOGLE_APPLICATION_CREDENTIALS (CI workflow writes the SA key to a tmp file
+    # and exports the env var). Phase 11 will swap this for WIF (keyless).
+    ci:
+      type: bigquery
+      method: oauth
+      project: "{{ env_var('GCP_PROJECT') }}"
+      dataset: spotify_analytics_ci
+      location: US
+      threads: 4
+      timeout_seconds: 300
+      priority: interactive
+
   target: dev

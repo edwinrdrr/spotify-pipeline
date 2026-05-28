@@ -1,0 +1,47 @@
+name: dbt CI
+
+on:
+  pull_request:
+    paths:
+      - 'dbt/**'
+      - 'requirements-dbt.txt'
+      - '.github/workflows/dbt-ci.yml'
+
+# Minimal default permissions; Phase 11 will need `id-token: write` for WIF.
+permissions:
+  contents: read
+
+jobs:
+  dbt-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      GCP_PROJECT: ${{ secrets.GCP_PROJECT }}
+      DBT_PROFILES_DIR: ${{ github.workspace }}/dbt
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: requirements-dbt.txt
+
+      - name: Install dbt
+        run: pip install -r requirements-dbt.txt
+
+      - name: Write GCP credentials to a tmp file
+        env:
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+        run: |
+          # Use a path outside the workspace so it can't be accidentally committed
+          # or shown in any path-based logging.
+          umask 077
+          echo "$GCP_SA_KEY" > "${RUNNER_TEMP}/sa-key.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=${RUNNER_TEMP}/sa-key.json" >> "$GITHUB_ENV"
+
+      - name: dbt build (--target ci)
+        working-directory: dbt
+        run: dbt build --target ci --no-partial-parse
